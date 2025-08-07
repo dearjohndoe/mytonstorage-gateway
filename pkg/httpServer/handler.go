@@ -14,6 +14,7 @@ type files interface {
 }
 
 type templatesSvc interface {
+	ContentType(ext, filename string) (string, string)
 	ErrorTemplate(err error) (string, error)
 	HtmlFilesListWithTemplate(f private.FolderInfo, path string) (string, error)
 }

@@ -85,11 +85,13 @@ func (h *handler) getBagInfoResponse(c *fiber.Ctx, bagid, path string, log *slog
 		filePath := filepath.Join(bagInfo.DiskPath, path)
 
 		ext := strings.ToLower(filepath.Ext(filename))
-		setFileContentType(c, ext, filename)
+		header, value := h.templates.ContentType(ext, filename)
+		c.Set(header, value)
 
 		return c.SendFile(filePath)
 	}
 
+	// Serve directory
 	html, err := h.templates.HtmlFilesListWithTemplate(bagInfo, path)
 	if err != nil {
 		var tErr error
