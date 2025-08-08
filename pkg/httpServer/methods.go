@@ -1,6 +1,7 @@
 package httpServer
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/url"
 	"path/filepath"
@@ -9,6 +10,8 @@ import (
 	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	v1 "mytonstorage-gateway/pkg/models/api/v1"
 )
 
 func (h *handler) limitReached(c *fiber.Ctx) error {
@@ -58,6 +61,134 @@ func (h *handler) getPath(c *fiber.Ctx) (err error) {
 	}
 
 	return h.getBagInfoResponse(c, bagid, decodedPath, log)
+}
+
+func (h *handler) getAllReports(c *fiber.Ctx) error {
+	log := h.logger.With(
+		slog.String("func", "getAllReports"),
+		slog.String("method", c.Method()),
+		slog.String("url", c.OriginalURL()),
+		slog.Any("headers", c.GetReqHeaders()),
+	)
+
+	limit := c.QueryInt("limit", 100)
+	offset := c.QueryInt("offset", 0)
+
+	reports, err := h.reports.GetReports(c.Context(), limit, offset)
+	if err != nil {
+		log.Error("failed to get reports", slog.String("error", err.Error()))
+		return errorHandler(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"reports": reports,
+	})
+}
+
+func (h *handler) updateBanStatus(c *fiber.Ctx) (err error) {
+	body := c.Body()
+	log := h.logger.With(
+		slog.String("func", "updateBanStatus"),
+		slog.String("method", c.Method()),
+		slog.String("url", c.OriginalURL()),
+		slog.Any("headers", c.GetReqHeaders()),
+		slog.Int("body_length", len(body)),
+		slog.String("body", string(body)),
+	)
+
+	if len(body) == 0 || body[0] != '[' {
+		err = fiber.NewError(fiber.StatusBadRequest, "invalid gzip body")
+		return errorHandler(c, err)
+	}
+
+	var statuses []v1.BanStatus
+	err = json.Unmarshal(body, &statuses)
+	if err != nil {
+		log.Error("failed to parse request body", slog.String("error", err.Error()))
+		return errorHandler(c, fiber.NewError(fiber.StatusBadRequest, "invalid request body"))
+	}
+
+	if err := h.reports.UpdateBanStatus(c.Context(), statuses); err != nil {
+		log.Error("failed to update ban status", slog.String("error", err.Error()))
+		return errorHandler(c, err)
+	}
+
+	return c.SendStatus(fiber.StatusOK)
+}
+
+func (h *handler) getReportsByBagID(c *fiber.Ctx) error {
+	bagID := c.Params("bagid")
+	log := h.logger.With(
+		slog.String("func", "getReportsByBagID"),
+		slog.String("bagID", bagID),
+		slog.String("method", c.Method()),
+		slog.String("url", c.OriginalURL()),
+		slog.Any("headers", c.GetReqHeaders()),
+	)
+
+	reports, err := h.reports.GetReportsByBagID(c.Context(), bagID)
+	if err != nil {
+		log.Error("failed to get report", slog.String("error", err.Error()))
+		return errorHandler(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"reports": reports,
+	})
+}
+
+func (h *handler) getBan(c *fiber.Ctx) error {
+	bagID := c.Params("bagid")
+	log := h.logger.With(
+		slog.String("func", "getBan"),
+		slog.String("bagID", bagID),
+		slog.String("method", c.Method()),
+		slog.String("url", c.OriginalURL()),
+		slog.Any("headers", c.GetReqHeaders()),
+	)
+
+	info, err := h.reports.GetBan(c.Context(), bagID)
+	if err != nil {
+		log.Error("failed to get ban", slog.String("error", err.Error()))
+		return errorHandler(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"ban": info,
+	})
+}
+
+func (h *handler) addReport(c *fiber.Ctx) (err error) {
+	bagID := c.Params("bagid")
+	body := c.Body()
+	log := h.logger.With(
+		slog.String("func", "addReport"),
+		slog.String("method", c.Method()),
+		slog.String("url", c.OriginalURL()),
+		slog.String("bagid", bagID),
+		slog.Any("headers", c.GetReqHeaders()),
+		slog.Int("body_length", len(body)),
+		slog.String("content_type", c.Get("Content-Type")),
+	)
+
+	if len(body) == 0 || body[0] != '{' {
+		err = fiber.NewError(fiber.StatusBadRequest, "invalid gzip body")
+		return errorHandler(c, err)
+	}
+
+	var report v1.Report
+	if err := c.BodyParser(&report); err != nil {
+		log.Error("failed to parse request body", slog.String("error", err.Error()))
+		return errorHandler(c, fiber.NewError(fiber.StatusBadRequest, "invalid request body"))
+	}
+
+	report.BagID = strings.ToLower(bagID)
+	if err := h.reports.AddReport(c.Context(), report); err != nil {
+		log.Error("failed to add report", slog.String("error", err.Error()))
+		return errorHandler(c, err)
+	}
+
+	return c.SendStatus(fiber.StatusOK)
 }
 
 func (h *handler) getBagInfoResponse(c *fiber.Ctx, bagid, path string, log *slog.Logger) (err error) {

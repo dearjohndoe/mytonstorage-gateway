@@ -16,6 +16,7 @@ import (
 	"mytonstorage-gateway/pkg/httpServer"
 	filesRepository "mytonstorage-gateway/pkg/repositories/files"
 	filesService "mytonstorage-gateway/pkg/services/files"
+	reportsService "mytonstorage-gateway/pkg/services/reports"
 	htmlTemplates "mytonstorage-gateway/pkg/templates"
 	tonstorage "mytonstorage-gateway/pkg/ton-storage"
 	"mytonstorage-gateway/pkg/workers"
@@ -102,6 +103,7 @@ func run() (err error) {
 
 	// Database
 	filesRepo := filesRepository.NewRepository(connPool)
+	filesRepo = filesRepository.NewCache(filesRepo)
 	filesRepo = filesRepository.NewMetrics(dbRequestsCount, dbRequestsDuration, filesRepo)
 
 	// Workers
@@ -121,6 +123,10 @@ func run() (err error) {
 	filesSvc := filesService.NewService(filesRepo, storage, logger)
 	filesSvc = filesService.NewCacheMiddleware(filesSvc)
 
+	reportsSvc := reportsService.NewService(filesRepo, logger)
+	// TODO:
+	// reportsSvc = reportsService.NewCacheMiddleware(reportsSvc)
+
 	templatesSvc, err := htmlTemplates.New("../templates")
 	if err != nil {
 		logger.Error("failed to initialize templates", slog.String("error", err.Error()))
@@ -133,6 +139,7 @@ func run() (err error) {
 	server := httpServer.New(
 		app,
 		filesSvc,
+		reportsSvc,
 		templatesSvc,
 		accessTokens,
 		config.Metrics.Namespace,
