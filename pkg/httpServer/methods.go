@@ -116,7 +116,7 @@ func (h *handler) updateBanStatus(c *fiber.Ctx) (err error) {
 	return c.SendStatus(fiber.StatusOK)
 }
 
-func (h *handler) getReportsByBagID(c *fiber.Ctx) error {
+func (h *handler) getReportsByBagID(c *fiber.Ctx) (err error) {
 	bagID := c.Params("bagid")
 	log := h.logger.With(
 		slog.String("func", "getReportsByBagID"),
@@ -125,6 +125,12 @@ func (h *handler) getReportsByBagID(c *fiber.Ctx) error {
 		slog.String("url", c.OriginalURL()),
 		slog.Any("headers", c.GetReqHeaders()),
 	)
+
+	if !validateBagID(strings.ToLower(bagID)) {
+		log.Error("invalid bagid format")
+		err = fiber.NewError(fiber.StatusBadRequest, "invalid bagid")
+		return errorHandler(c, err)
+	}
 
 	reports, err := h.reports.GetReportsByBagID(c.Context(), bagID)
 	if err != nil {
@@ -137,7 +143,7 @@ func (h *handler) getReportsByBagID(c *fiber.Ctx) error {
 	})
 }
 
-func (h *handler) getBan(c *fiber.Ctx) error {
+func (h *handler) getBan(c *fiber.Ctx) (err error) {
 	bagID := c.Params("bagid")
 	log := h.logger.With(
 		slog.String("func", "getBan"),
@@ -146,6 +152,12 @@ func (h *handler) getBan(c *fiber.Ctx) error {
 		slog.String("url", c.OriginalURL()),
 		slog.Any("headers", c.GetReqHeaders()),
 	)
+
+	if !validateBagID(strings.ToLower(bagID)) {
+		log.Error("invalid bagid format")
+		err = fiber.NewError(fiber.StatusBadRequest, "invalid bagid")
+		return errorHandler(c, err)
+	}
 
 	info, err := h.reports.GetBan(c.Context(), bagID)
 	if err != nil {
@@ -170,6 +182,12 @@ func (h *handler) addReport(c *fiber.Ctx) (err error) {
 		slog.Int("body_length", len(body)),
 		slog.String("content_type", c.Get("Content-Type")),
 	)
+
+	if !validateBagID(strings.ToLower(bagID)) {
+		log.Error("invalid bagid format")
+		err = fiber.NewError(fiber.StatusBadRequest, "invalid bagid")
+		return errorHandler(c, err)
+	}
 
 	if len(body) == 0 || body[0] != '{' {
 		err = fiber.NewError(fiber.StatusBadRequest, "invalid gzip body")

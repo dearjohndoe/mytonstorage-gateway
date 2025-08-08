@@ -32,10 +32,6 @@ type Files interface {
 }
 
 func (s *service) GetPathInfo(ctx context.Context, bagID, path string) (info private.FolderInfo, err error) {
-	if len(bagID) != 64 {
-		return info, models.NewAppError(models.BadRequestErrorCode, "invalid bag ID")
-	}
-
 	log := s.logger.With(
 		slog.String("method", "GetPathInfo"),
 		slog.String("bagID", bagID),

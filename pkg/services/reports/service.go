@@ -65,10 +65,6 @@ func (s *service) GetReportsByBagID(ctx context.Context, bagID string) ([]v1.Rep
 	)
 
 	bagID = strings.ToLower(bagID)
-	if len(bagID) != 64 {
-		return nil, models.NewAppError(models.BadRequestErrorCode, "invalid bag ID")
-	}
-
 	dbReports, err := s.files.GetReportsByBagID(ctx, bagID)
 	if err != nil {
 		log.Error("failed to get report", slog.String("error", err.Error()))
@@ -105,10 +101,6 @@ func (s *service) GetBan(ctx context.Context, bagID string) (*v1.BanInfo, error)
 	)
 
 	bagID = strings.ToLower(bagID)
-	if len(bagID) != 64 {
-		return nil, models.NewAppError(models.BadRequestErrorCode, "invalid bag ID")
-	}
-
 	status, err := s.files.GetBan(ctx, bagID)
 	if err != nil {
 		log.Error("failed to get ban info", slog.String("error", err.Error()))
