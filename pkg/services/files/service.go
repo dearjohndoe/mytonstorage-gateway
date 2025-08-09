@@ -60,7 +60,7 @@ func (s *service) GetPathInfo(ctx context.Context, bagID, path string) (info pri
 
 	info = private.FolderInfo{
 		IsValid:  true,
-		BagID:    strings.ToUpper(bagID),
+		BagID:    bagID,
 		DiskPath: filepath.Join(bag.Path, bag.DirName),
 		Files:    ls(bag.Files, path),
 	}

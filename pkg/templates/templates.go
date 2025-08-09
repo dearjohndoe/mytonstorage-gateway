@@ -52,6 +52,8 @@ func (t *htmlTemplates) HtmlFilesListWithTemplate(f private.FolderInfo, path str
 		return t.renderTemplate("error.html", TemplateError{Error: "Invalid path"})
 	}
 
+	f.BagID = strings.ToUpper(f.BagID)
+
 	data := TemplateData{
 		Title:    filepath.Join(f.BagID, path),
 		FullPath: filepath.Join(f.BagID, path),

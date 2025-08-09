@@ -47,7 +47,7 @@ func (s *service) GetReports(ctx context.Context, limit int, offset int) (report
 		}
 
 		reports = append(reports, v1.Report{
-			BagID:     r.BagID,
+			BagID:     strings.ToUpper(r.BagID),
 			Reason:    r.Reason,
 			Sender:    r.Sender,
 			Comment:   r.Comment,
@@ -64,7 +64,6 @@ func (s *service) GetReportsByBagID(ctx context.Context, bagID string) ([]v1.Rep
 		slog.String("bagID", bagID),
 	)
 
-	bagID = strings.ToLower(bagID)
 	dbReports, err := s.files.GetReportsByBagID(ctx, bagID)
 	if err != nil {
 		log.Error("failed to get report", slog.String("error", err.Error()))
@@ -83,7 +82,7 @@ func (s *service) GetReportsByBagID(ctx context.Context, bagID string) ([]v1.Rep
 		}
 
 		resp = append(resp, v1.Report{
-			BagID:     dbReport.BagID,
+			BagID:     strings.ToUpper(dbReport.BagID),
 			Reason:    dbReport.Reason,
 			Sender:    dbReport.Sender,
 			Comment:   dbReport.Comment,
@@ -100,7 +99,6 @@ func (s *service) GetBan(ctx context.Context, bagID string) (*v1.BanInfo, error)
 		slog.String("bagID", bagID),
 	)
 
-	bagID = strings.ToLower(bagID)
 	status, err := s.files.GetBan(ctx, bagID)
 	if err != nil {
 		log.Error("failed to get ban info", slog.String("error", err.Error()))

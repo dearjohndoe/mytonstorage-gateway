@@ -2,6 +2,7 @@ package files
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"mytonstorage-gateway/pkg/cache"
@@ -18,14 +19,18 @@ var (
 )
 
 func (c *cacheMiddleware) HasBan(ctx context.Context, bagID string) (bool, error) {
-	key := hasBanKey + bagID
-	if cached, ok := c.cache.Get(key); ok {
-		return cached.(bool), nil
+	key := hasBanKey + strings.ToLower(bagID)
+	if banned, ok := c.cache.Get(key); ok {
+		if banned.(bool) {
+			return true, nil
+		}
 	}
 
 	result, err := c.repo.HasBan(ctx, bagID)
 	if err == nil {
-		c.cache.Set(key, result)
+		if result {
+			c.cache.Set(key, result)
+		}
 	}
 
 	return result, err
@@ -54,7 +59,7 @@ func (c *cacheMiddleware) UpdateBanStatus(ctx context.Context, statuses []db.Ban
 	}
 
 	for _, status := range statuses {
-		key := hasBanKey + status.BagID
+		key := hasBanKey + strings.ToLower(status.BagID)
 		if !status.Status {
 			c.cache.Release(key)
 		} else {
