@@ -10,13 +10,13 @@ import (
 	"mytonstorage-gateway/pkg/utils"
 )
 
-const APIBase = "/gateway"
+const APIBase = "/api/v1/gateway"
 
 var (
-	imageFormats      = []string{".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".tiff", ".ico", ".avif"}
-	videoFormats      = []string{".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv", ".wmv"}
-	audioFormats      = []string{".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a"}
-	executableFormats = []string{".exe", ".bat", ".sh", ".cmd"}
+	imageFormats = []string{".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".tiff", ".ico", ".avif"}
+	videoFormats = []string{".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv", ".wmv"}
+	audioFormats = []string{".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a"}
+	textFormats  = []string{".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js", ".ts", ".py", ".go", ".java", ".c", ".cpp", ".h", ".php", ".rb", ".sh"}
 )
 
 type htmlTemplates struct {
@@ -24,8 +24,23 @@ type htmlTemplates struct {
 }
 
 type Templates interface {
+	ContentType(ext, filename string) (string, string)
 	ErrorTemplate(err error) (string, error)
 	HtmlFilesListWithTemplate(f private.FolderInfo, path string) (string, error)
+}
+
+func (t *htmlTemplates) ContentType(ext, filename string) (header, value string) {
+	if slices.Contains(imageFormats, ext) {
+		return "Content-Type", "image/" + strings.TrimPrefix(ext, ".")
+	} else if slices.Contains(videoFormats, ext) {
+		return "Content-Type", "video/" + strings.TrimPrefix(ext, ".")
+	} else if slices.Contains(audioFormats, ext) {
+		return "Content-Type", "audio/" + strings.TrimPrefix(ext, ".")
+	} else if slices.Contains(textFormats, ext) {
+		return "Content-Type", "text/" + strings.TrimPrefix(ext, ".")
+	}
+
+	return "Content-Disposition", `attachment; filename="` + filename + `"`
 }
 
 func (t *htmlTemplates) ErrorTemplate(err error) (string, error) {
@@ -36,6 +51,8 @@ func (t *htmlTemplates) HtmlFilesListWithTemplate(f private.FolderInfo, path str
 	if !f.IsValid {
 		return t.renderTemplate("error.html", TemplateError{Error: "Invalid path"})
 	}
+
+	f.BagID = strings.ToUpper(f.BagID)
 
 	data := TemplateData{
 		Title:    filepath.Join(f.BagID, path),
@@ -65,8 +82,8 @@ func (t *htmlTemplates) HtmlFilesListWithTemplate(f private.FolderInfo, path str
 			icon = "🎥"
 		} else if slices.Contains(audioFormats, ext) {
 			icon = "🎵"
-		} else if slices.Contains(executableFormats, ext) {
-			icon = "⚙️"
+		} else if slices.Contains(textFormats, ext) {
+			icon = "📝"
 		}
 
 		var href string

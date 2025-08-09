@@ -11,3 +11,26 @@ type File struct {
 	Size     uint64 `json:"size"`
 	IsFolder bool   `json:"is_folder,omitempty"`
 }
+
+type Report struct {
+	BagID     string `json:"bag_id"`
+	Reason    string `json:"reason"`
+	Sender    string `json:"sender"`
+	Comment   string `json:"comment"`
+	CreatedAt uint64 `json:"created_at"`
+}
+
+type BanInfo struct {
+	BagID   string `json:"bag_id"`
+	Admin   string `json:"admin"`
+	Reason  string `json:"reason"`
+	Comment string `json:"comment"`
+}
+
+type BanStatus struct {
+	BagID   string `json:"bag_id"`
+	Admin   string `json:"admin"`
+	Reason  string `json:"reason"`
+	Comment string `json:"comment"`
+	Status  bool   `json:"status"`
+}

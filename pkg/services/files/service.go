@@ -14,12 +14,13 @@ import (
 )
 
 type service struct {
-	files      filesDb
+	reports    reportsDb
 	tonstorage storage
 	logger     *slog.Logger
 }
 
-type filesDb interface {
+type reportsDb interface {
+	HasBan(ctx context.Context, bagID string) (bool, error)
 }
 
 type storage interface {
@@ -28,6 +29,43 @@ type storage interface {
 
 type Files interface {
 	GetPathInfo(ctx context.Context, bagID, path string) (private.FolderInfo, error)
+}
+
+func (s *service) GetPathInfo(ctx context.Context, bagID, path string) (info private.FolderInfo, err error) {
+	log := s.logger.With(
+		slog.String("method", "GetPathInfo"),
+		slog.String("bagID", bagID),
+		slog.String("path", path),
+	)
+
+	isBanned, err := s.reports.HasBan(ctx, bagID)
+	if err != nil {
+		log.Error("failed to check ban status", slog.String("error", err.Error()))
+		return info, models.NewAppError(models.InternalServerErrorCode, "")
+	}
+
+	if isBanned {
+		log.Warn("bag is banned", slog.String("bagID", bagID))
+		return info, models.NewAppError(models.NotAcceptableErrorCode, "bag is banned")
+	}
+
+	bag, err := s.tonstorage.GetBag(ctx, bagID)
+	if err != nil {
+		if err != tonstorageClient.ErrNotFound {
+			log.Error("failed to get bag", slog.String("error", err.Error()))
+		}
+
+		return info, models.NewAppError(models.NotFoundErrorCode, "bag not found")
+	}
+
+	info = private.FolderInfo{
+		IsValid:  true,
+		BagID:    bagID,
+		DiskPath: filepath.Join(bag.Path, bag.DirName),
+		Files:    ls(bag.Files, path),
+	}
+
+	return
 }
 
 func ls(files []tonstorageClient.File, path string) []v1.File {
@@ -103,39 +141,13 @@ func ls(files []tonstorageClient.File, path string) []v1.File {
 	return result
 }
 
-func (s *service) GetPathInfo(ctx context.Context, bagID, path string) (info private.FolderInfo, err error) {
-	log := s.logger.With(
-		slog.String("method", "GetPathInfo"),
-		slog.String("bagID", bagID),
-		slog.String("path", path),
-	)
-
-	bag, err := s.tonstorage.GetBag(ctx, bagID)
-	if err != nil {
-		if err != tonstorageClient.ErrNotFound {
-			log.Error("failed to get bag", slog.String("error", err.Error()))
-		}
-
-		return info, models.NewAppError(models.NotFoundErrorCode, "bag not found")
-	}
-
-	info = private.FolderInfo{
-		IsValid:  true,
-		BagID:    strings.ToUpper(bagID),
-		DiskPath: filepath.Join(bag.Path, bag.DirName),
-		Files:    ls(bag.Files, path),
-	}
-
-	return
-}
-
 func NewService(
-	files filesDb,
+	reports reportsDb,
 	tonstorage storage,
 	logger *slog.Logger,
 ) Files {
 	return &service{
-		files:      files,
+		reports:    reports,
 		tonstorage: tonstorage,
 		logger:     logger,
 	}

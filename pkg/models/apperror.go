@@ -9,6 +9,7 @@ const (
 	NotFoundErrorCode       = http.StatusNotFound
 	InternalServerErrorCode = http.StatusInternalServerError
 	BadRequestErrorCode     = http.StatusBadRequest
+	NotAcceptableErrorCode  = http.StatusNotAcceptable
 )
 
 var defaultMessages = map[int]string{
