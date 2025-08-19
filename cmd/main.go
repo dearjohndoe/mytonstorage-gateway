@@ -13,12 +13,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/prometheus/client_golang/prometheus"
 
+	remotetonstorage "mytonstorage-gateway/pkg/clients/remote-ton-storage"
+	tonstorage "mytonstorage-gateway/pkg/clients/ton-storage"
 	"mytonstorage-gateway/pkg/httpServer"
 	filesRepository "mytonstorage-gateway/pkg/repositories/files"
 	filesService "mytonstorage-gateway/pkg/services/files"
 	reportsService "mytonstorage-gateway/pkg/services/reports"
 	htmlTemplates "mytonstorage-gateway/pkg/templates"
-	tonstorage "mytonstorage-gateway/pkg/ton-storage"
 	"mytonstorage-gateway/pkg/workers"
 	"mytonstorage-gateway/pkg/workers/cleaner"
 )
@@ -119,8 +120,20 @@ func run() (err error) {
 		config.TONStorage.BaseURL,
 		&creds)
 
+	rBagsCache := remotetonstorage.NewBagsCache(config.RemoteTONStorageCache.MaxCacheSize, config.RemoteTONStorageCache.MaxCacheEntries)
+	rstorage, err := remotetonstorage.NewClient(context.Background(), "", rBagsCache)
+	if err != nil {
+		logger.Error("failed to create remote TON Storage client", slog.String("error", err.Error()))
+		return
+	}
+	defer func() {
+		if rstorage != nil {
+			rstorage.Close()
+		}
+	}()
+
 	// Services
-	filesSvc := filesService.NewService(filesRepo, storage, logger)
+	filesSvc := filesService.NewService(filesRepo, storage, rstorage, logger)
 	filesSvc = filesService.NewCacheMiddleware(filesSvc)
 
 	reportsSvc := reportsService.NewService(filesRepo, logger)
@@ -174,6 +187,11 @@ func run() (err error) {
 
 	<-signalChan
 	cancel()
+
+	if rstorage != nil {
+		rstorage.Close()
+		logger.Info("remote TON Storage client closed")
+	}
 
 	err = app.ShutdownWithTimeout(time.Second * 5)
 	if err != nil {

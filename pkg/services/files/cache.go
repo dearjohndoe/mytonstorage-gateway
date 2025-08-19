@@ -2,6 +2,7 @@ package files
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"mytonstorage-gateway/pkg/cache"
@@ -14,10 +15,22 @@ type cacheMiddleware struct {
 }
 
 func (c *cacheMiddleware) GetPathInfo(ctx context.Context, bagID, path string) (info private.FolderInfo, err error) {
+	cacheKey := fmt.Sprintf("%s:%s", bagID, path)
+
+	if cachedInfo, ok := c.cache.Get(cacheKey); ok {
+		return cachedInfo.(private.FolderInfo), nil
+	}
+
 	info, err = c.svc.GetPathInfo(ctx, bagID, path)
 	if err != nil {
 		return
 	}
+
+	if info.StreamFile != nil {
+		return
+	}
+
+	c.cache.Set(cacheKey, info)
 
 	return
 }
