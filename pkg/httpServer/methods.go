@@ -228,19 +228,20 @@ func (h *handler) getBagInfoResponse(c *fiber.Ctx, bagid, path string, log *slog
 		return errorHandler(c, err)
 	}
 
-	// Serve single file
-	if len(bagInfo.Files) == 1 && !bagInfo.Files[0].IsFolder && strings.HasSuffix(path, bagInfo.Files[0].Name) {
-		filename := bagInfo.Files[0].Name
-		filePath := filepath.Join(bagInfo.DiskPath, path)
-
-		ext := strings.ToLower(filepath.Ext(filename))
-		header, value := h.templates.ContentType(ext, filename)
+	if bagInfo.StreamFile != nil {
+		// stream from remote storage
+		_, file := filepath.Split(path)
+		ext := strings.ToLower(filepath.Ext(file))
+		header, value := h.templates.ContentType(ext, file)
 		c.Set(header, value)
 
-		return c.SendFile(filePath)
+		return c.SendStream(bagInfo.StreamFile.FileStream, int(bagInfo.StreamFile.Size))
+	} else if bagInfo.SingleFilePath != "" {
+		// serve single file from local storage
+		return c.SendFile(bagInfo.SingleFilePath)
 	}
 
-	// Serve directory
+	// serve directory
 	html, err := h.templates.HtmlFilesListWithTemplate(bagInfo, path)
 	if err != nil {
 		var tErr error
