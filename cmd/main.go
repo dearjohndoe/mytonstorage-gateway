@@ -147,7 +147,7 @@ func run() (err error) {
 	}
 
 	// HTTP Server
-	accessTokens := strings.Split(config.System.AccessTokens, ",")
+	accessTokens := strings.Split(config.System.AccessTokens, ";")
 	app := fiber.New()
 	server := httpServer.New(
 		app,

@@ -15,7 +15,12 @@ var logLevels = map[uint8]slog.Level{
 }
 
 type System struct {
-	Port         string `env:"SYSTEM_PORT" envDefault:"9093"`
+	Port string `env:"SYSTEM_PORT" envDefault:"9093"`
+
+	// AccessTokens format: "hash1:bans,reports,metrics;hash2:metrics;hash3"
+	// Tokens separated by semicolon (;), permissions by comma (,)
+	// Permissions: bans, reports, metrics, all
+	// If no permissions specified - all permissions granted.
 	AccessTokens string `env:"SYSTEM_ACCESS_TOKENS" envDefault:""`
 	LogLevel     uint8  `env:"SYSTEM_LOG_LEVEL" envDefault:"1"` // 0 - debug, 1 - info, 2 - warn, 3 - error
 }

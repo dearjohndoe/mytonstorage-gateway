@@ -36,19 +36,17 @@ func (h *handler) RegisterRoutes() {
 		gateway.Get("/:bagid/*", h.getPath)
 
 		gateway.Get("/health", h.health)
-		gateway.Get("/metrics", h.authorizationMiddleware, h.metrics)
+		gateway.Get("/metrics", h.requireMetrics(), h.metrics)
 	}
 
 	{
 		reports := apiv1.Group("/reports")
 
-		// admins only
-		reports.Get("", h.authorizationMiddleware, h.getAllReports)
-		reports.Get("/:bagid", h.authorizationMiddleware, h.getReportsByBagID)
-		reports.Get("/:bagid/ban", h.authorizationMiddleware, h.getBan)
-		reports.Put("", h.authorizationMiddleware, h.updateBanStatus)
+		reports.Get("", h.requireBans(), h.getAllReports)
+		reports.Get("/:bagid", h.requireBans(), h.getReportsByBagID)
+		reports.Get("/:bagid/ban", h.requireBans(), h.getBan)
+		reports.Put("", h.requireBans(), h.updateBanStatus)
 
-		// anyone
-		reports.Put("/:bagid", h.addReport)
+		reports.Put("/:bagid", h.requireReports(), h.addReport)
 	}
 }
