@@ -26,6 +26,11 @@ type TONStorage struct {
 	Password string `env:"TON_STORAGE_PASSWORD" required:"true"`
 }
 
+type RemoteTONStorageCache struct {
+	MaxCacheSize    uint64 `env:"REMOTE_TON_STORAGE_CACHE_MAX_SIZE" envDefault:"1073741824"` // 1GB
+	MaxCacheEntries int    `env:"REMOTE_TON_STORAGE_CACHE_MAX_ENTRIES" envDefault:"1000"`
+}
+
 type Metrics struct {
 	Namespace        string `env:"NAMESPACE" default:"ton-storage"`
 	ServerSubsystem  string `env:"SERVER_SUBSYSTEM" default:"mtpo-server"`
@@ -42,10 +47,11 @@ type Postgress struct {
 }
 
 type Config struct {
-	System     System
-	TONStorage TONStorage
-	Metrics    Metrics
-	DB         Postgress
+	System                System
+	TONStorage            TONStorage
+	RemoteTONStorageCache RemoteTONStorageCache
+	Metrics               Metrics
+	DB                    Postgress
 }
 
 func loadConfig() *Config {
@@ -58,6 +64,9 @@ func loadConfig() *Config {
 	}
 	if err := env.Parse(&cfg.Metrics); err != nil {
 		log.Fatalf("Failed to parse metrics config: %v", err)
+	}
+	if err := env.Parse(&cfg.RemoteTONStorageCache); err != nil {
+		log.Fatalf("Failed to parse remote TON Storage cache config: %v", err)
 	}
 	if err := env.Parse(&cfg.DB); err != nil {
 		log.Fatalf("Failed to parse db config: %v", err)
