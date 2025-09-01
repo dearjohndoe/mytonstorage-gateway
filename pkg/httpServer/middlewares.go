@@ -8,24 +8,54 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func (h *handler) authorizationMiddleware(c *fiber.Ctx) error {
-	accessToken := c.Get("Authorization")
-	if accessToken == "" {
-		return errorHandler(c, fiber.NewError(fiber.StatusUnauthorized, "unauthorized"))
+// requirePermission создает middleware для проверки конкретного разрешения
+func (h *handler) requirePermission(permission string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		accessToken := c.Get("Authorization")
+		if accessToken == "" {
+			return errorHandler(c, fiber.NewError(fiber.StatusUnauthorized, "unauthorized"))
+		}
+
+		if strings.HasPrefix(strings.ToLower(accessToken), "bearer ") {
+			accessToken = accessToken[7:]
+		}
+
+		hash := md5.Sum([]byte(accessToken))
+		tokenHash := fmt.Sprintf("%x", hash[:])
+
+		tokenPermissions, exists := h.accessTokens[tokenHash]
+		if !exists {
+			return errorHandler(c, fiber.NewError(fiber.StatusForbidden, "forbidden"))
+		}
+
+		hasPermission := false
+		switch permission {
+		case "bans":
+			hasPermission = tokenPermissions.Bans
+		case "reports":
+			hasPermission = tokenPermissions.Reports
+		case "metrics":
+			hasPermission = tokenPermissions.Metrics
+		}
+
+		if !hasPermission {
+			return errorHandler(c, fiber.NewError(fiber.StatusForbidden, "forbidden"))
+		}
+
+		return c.Next()
 	}
+}
 
-	if strings.HasPrefix(strings.ToLower(accessToken), "bearer ") {
-		accessToken = accessToken[7:]
-	}
+func (h *handler) requireBans() fiber.Handler {
+	return h.requirePermission("bans")
+}
 
-	hash := md5.Sum([]byte(accessToken))
-	tokenHash := fmt.Sprintf("%x", hash[:])
+func (h *handler) requireReports() fiber.Handler {
+	return h.requirePermission("reports")
+}
 
-	if _, exists := h.accessTokens[tokenHash]; !exists {
-		return errorHandler(c, fiber.NewError(fiber.StatusForbidden, "forbidden"))
-	}
-
-	return c.Next()
+func (h *handler) requireMetrics() fiber.Handler {
+	return h.requirePermission("metrics")
 }
 
 func (h *handler) loggerMiddleware(c *fiber.Ctx) error {

@@ -3,12 +3,19 @@ package httpServer
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
 	v1 "mytonstorage-gateway/pkg/models/api/v1"
 	"mytonstorage-gateway/pkg/models/private"
 )
+
+type TokenPermissions struct {
+	Bans    bool
+	Reports bool
+	Metrics bool
+}
 
 type files interface {
 	GetPathInfo(ctx context.Context, bagID, path string) (private.FolderInfo, error)
@@ -40,7 +47,7 @@ type handler struct {
 	templates    templatesSvc
 	namespace    string
 	subsystem    string
-	accessTokens map[string]struct{}
+	accessTokens map[string]TokenPermissions
 }
 
 func New(
@@ -53,9 +60,44 @@ func New(
 	subsystem string,
 	logger *slog.Logger,
 ) *handler {
-	accessTokensMap := make(map[string]struct{})
+	accessTokensMap := make(map[string]TokenPermissions)
+
 	for _, token := range accessTokens {
-		accessTokensMap[token] = struct{}{}
+		parts := strings.Split(token, ":")
+		tokenHash := strings.TrimSpace(parts[0])
+
+		if tokenHash == "" {
+			continue
+		}
+
+		// default
+		permissions := TokenPermissions{
+			Bans:    true,
+			Reports: true,
+			Metrics: true,
+		}
+
+		if len(parts) > 1 {
+			permissionsList := strings.Split(parts[1], ",")
+			permissions = TokenPermissions{}
+
+			for _, perm := range permissionsList {
+				switch strings.TrimSpace(strings.ToLower(perm)) {
+				case "bans":
+					permissions.Bans = true
+				case "reports":
+					permissions.Reports = true
+				case "metrics":
+					permissions.Metrics = true
+				case "all":
+					permissions.Bans = true
+					permissions.Reports = true
+					permissions.Metrics = true
+				}
+			}
+		}
+
+		accessTokensMap[tokenHash] = permissions
 	}
 
 	h := &handler{
