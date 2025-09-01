@@ -53,7 +53,6 @@ func (c *client) StreamFile(ctx context.Context, bagID, path string) (io.ReadClo
 
 	fileInfo, err := torrent.GetFileOffsets(path)
 	if err != nil {
-		downloader.Close()
 		return nil, 0, ErrNotFound
 	}
 
@@ -68,7 +67,6 @@ func (c *client) StreamFile(ctx context.Context, bagID, path string) (io.ReadClo
 	go func() {
 		defer fetch.Stop()
 		defer pw.Close()
-		defer downloader.Close()
 
 		for p := fileInfo.FromPiece; p <= fileInfo.ToPiece; p++ {
 			data, _, err := fetch.Get(ctx, p)
@@ -169,7 +167,6 @@ func (c *client) getTorrent(ctx context.Context, bagID string) (torrent *tonstor
 		err = fmt.Errorf("failed to create downloader: %w", err)
 		return
 	}
-	defer downloader.Close()
 
 	if torrent.Header == nil || torrent.Info == nil {
 		err = fmt.Errorf("torrent header or info not loaded")
