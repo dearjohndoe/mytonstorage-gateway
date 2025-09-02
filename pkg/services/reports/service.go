@@ -16,6 +16,7 @@ type filesDb interface {
 	AddReport(ctx context.Context, report db.Report) error
 	UpdateBanStatus(ctx context.Context, statuses []db.BanStatus) error
 	GetBan(ctx context.Context, bagID string) (*db.BanStatus, error)
+	GetAllBans(ctx context.Context, limit int, offset int) ([]db.BanStatus, error)
 }
 
 type service struct {
@@ -27,6 +28,7 @@ type Reports interface {
 	GetReports(ctx context.Context, limit int, offset int) ([]v1.Report, error)
 	GetReportsByBagID(ctx context.Context, bagID string) ([]v1.Report, error)
 	GetBan(ctx context.Context, bagID string) (*v1.BanInfo, error)
+	GetAllBans(ctx context.Context, limit int, offset int) ([]v1.BanInfo, error)
 	AddReport(ctx context.Context, report v1.Report) error
 	UpdateBanStatus(ctx context.Context, statuses []v1.BanStatus) error
 }
@@ -110,11 +112,32 @@ func (s *service) GetBan(ctx context.Context, bagID string) (*v1.BanInfo, error)
 	}
 
 	return &v1.BanInfo{
-		BagID:   status.BagID,
+		BagID:   strings.ToUpper(status.BagID),
 		Admin:   status.Admin,
 		Reason:  status.Reason,
 		Comment: status.Comment,
 	}, nil
+}
+
+func (s *service) GetAllBans(ctx context.Context, limit int, offset int) (bans []v1.BanInfo, err error) {
+	log := s.logger.With(slog.String("method", "GetAllBans"))
+
+	dbBans, err := s.files.GetAllBans(ctx, limit, offset)
+	if err != nil {
+		log.Error("failed to get bans", slog.String("error", err.Error()))
+		return nil, models.NewAppError(models.InternalServerErrorCode, "")
+	}
+
+	for _, b := range dbBans {
+		bans = append(bans, v1.BanInfo{
+			BagID:   strings.ToUpper(b.BagID),
+			Admin:   b.Admin,
+			Reason:  b.Reason,
+			Comment: b.Comment,
+		})
+	}
+
+	return bans, nil
 }
 
 func (s *service) AddReport(ctx context.Context, report v1.Report) error {

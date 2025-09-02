@@ -16,6 +16,7 @@ type repository struct {
 type Repository interface {
 	HasBan(ctx context.Context, bagID string) (bool, error)
 	GetBan(ctx context.Context, bagID string) (*db.BanStatus, error)
+	GetAllBans(ctx context.Context, limit int, offset int) ([]db.BanStatus, error)
 	GetReports(ctx context.Context, limit int, offset int) ([]db.Report, error)
 	GetReportsByBagID(ctx context.Context, bagID string) ([]db.Report, error)
 	AddReport(ctx context.Context, report db.Report) error
@@ -51,6 +52,36 @@ func (r *repository) GetBan(ctx context.Context, bagID string) (*db.BanStatus, e
 	}
 
 	return &b, nil
+}
+
+func (r *repository) GetAllBans(ctx context.Context, limit int, offset int) (bans []db.BanStatus, err error) {
+	query := `
+		SELECT bagid, admin, reason, comment, true as status, created_at 
+		FROM files.blacklist 
+		ORDER BY created_at DESC 
+		LIMIT $1 
+		OFFSET $2`
+
+	rows, err := r.db.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var b db.BanStatus
+		if err := rows.Scan(&b.BagID, &b.Admin, &b.Reason, &b.Comment, &b.Status, &b.CreatedAt); err != nil {
+			return nil, err
+		}
+
+		bans = append(bans, b)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return
 }
 
 func (r *repository) GetReports(ctx context.Context, limit int, offset int) (reports []db.Report, err error) {
