@@ -60,6 +60,17 @@ func (m *metricsMiddleware) GetBan(ctx context.Context, bagID string) (status *d
 	return m.repo.GetBan(ctx, bagID)
 }
 
+func (m *metricsMiddleware) GetAllBans(ctx context.Context, limit int, offset int) (bans []db.BanStatus, err error) {
+	defer func(s time.Time) {
+		labels := []string{
+			"GetAllBans", strconv.FormatBool(err != nil),
+		}
+		m.reqCount.WithLabelValues(labels...).Add(1)
+		m.reqDuration.WithLabelValues(labels...).Observe(time.Since(s).Seconds())
+	}(time.Now())
+	return m.repo.GetAllBans(ctx, limit, offset)
+}
+
 func (m *metricsMiddleware) AddReport(ctx context.Context, report db.Report) (err error) {
 	defer func(s time.Time) {
 		labels := []string{

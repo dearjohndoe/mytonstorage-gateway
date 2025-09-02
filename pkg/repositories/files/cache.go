@@ -40,6 +40,10 @@ func (c *cacheMiddleware) GetBan(ctx context.Context, bagID string) (status *db.
 	return c.repo.GetBan(ctx, bagID)
 }
 
+func (c *cacheMiddleware) GetAllBans(ctx context.Context, limit int, offset int) (bans []db.BanStatus, err error) {
+	return c.repo.GetAllBans(ctx, limit, offset)
+}
+
 func (c *cacheMiddleware) GetReports(ctx context.Context, limit int, offset int) (reports []db.Report, err error) {
 	return c.repo.GetReports(ctx, limit, offset)
 }

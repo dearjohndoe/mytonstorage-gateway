@@ -49,4 +49,10 @@ func (h *handler) RegisterRoutes() {
 
 		reports.Put("/:bagid", h.requireReports(), h.addReport)
 	}
+
+	{
+		bans := apiv1.Group("/bans")
+
+		bans.Get("", h.requireBans(), h.getAllBans)
+	}
 }

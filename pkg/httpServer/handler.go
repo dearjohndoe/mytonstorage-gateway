@@ -25,6 +25,7 @@ type reports interface {
 	GetReports(ctx context.Context, limit int, offset int) ([]v1.Report, error)
 	GetReportsByBagID(ctx context.Context, bagID string) ([]v1.Report, error)
 	GetBan(ctx context.Context, bagID string) (*v1.BanInfo, error)
+	GetAllBans(ctx context.Context, limit int, offset int) ([]v1.BanInfo, error)
 	AddReport(ctx context.Context, report v1.Report) error
 	UpdateBanStatus(ctx context.Context, statuses []v1.BanStatus) error
 }

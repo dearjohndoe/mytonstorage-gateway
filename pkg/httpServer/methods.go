@@ -85,6 +85,28 @@ func (h *handler) getAllReports(c *fiber.Ctx) error {
 	})
 }
 
+func (h *handler) getAllBans(c *fiber.Ctx) error {
+	log := h.logger.With(
+		slog.String("func", "getAllBans"),
+		slog.String("method", c.Method()),
+		slog.String("url", c.OriginalURL()),
+		slog.Any("headers", c.GetReqHeaders()),
+	)
+
+	limit := c.QueryInt("limit", 100)
+	offset := c.QueryInt("offset", 0)
+
+	bans, err := h.reports.GetAllBans(c.Context(), limit, offset)
+	if err != nil {
+		log.Error("failed to get bans", slog.String("error", err.Error()))
+		return errorHandler(c, err)
+	}
+
+	return c.JSON(fiber.Map{
+		"bans": bans,
+	})
+}
+
 func (h *handler) updateBanStatus(c *fiber.Ctx) (err error) {
 	body := c.Body()
 	log := h.logger.With(
