@@ -1,10 +1,14 @@
 package htmlTemplates
 
 type TemplateData struct {
-	Title     string
-	FullPath  string
-	ParentDir *ParentDirData
-	Files     []FileData
+	Title       string
+	FullPath    string
+	TotalSize   string
+	Description string
+	PeersCount  int
+	FileCount   int
+	ParentDir   *ParentDirData
+	Files       []FileData
 }
 
 type TemplateError struct {

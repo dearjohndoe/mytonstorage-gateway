@@ -93,6 +93,30 @@
             border-radius: 3px;
             margin: 0 2px;
         }
+        .torrent-info {
+            background: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        .torrent-info p {
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+        }
+        .torrent-info p:first-child {
+            margin-top: 0;
+        }
+        .torrent-info p:last-child {
+            margin-bottom: 0;
+        }
+        .torrent-info strong {
+            color: #24292e;
+            margin-right: 8px;
+            min-width: 100px;
+        }
     </style>
 </head>
 <body>
@@ -118,6 +142,13 @@
             </li>
             {{end}}
         </ul>
+        
+        <div class="torrent-info">
+            <p><strong>Total Size:</strong> {{.TotalSize}}</p>
+            <p><strong>Description:</strong> {{.Description}}</p>
+            <p><strong>Files Count:</strong> {{.FileCount}}</p>
+            <p><strong>Peers Count:</strong> {{.PeersCount}}</p>
+        </div>
     </div>
     
     <div class="keyboard-hint">

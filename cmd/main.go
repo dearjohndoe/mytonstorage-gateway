@@ -20,8 +20,6 @@ import (
 	filesService "mytonstorage-gateway/pkg/services/files"
 	reportsService "mytonstorage-gateway/pkg/services/reports"
 	htmlTemplates "mytonstorage-gateway/pkg/templates"
-	"mytonstorage-gateway/pkg/workers"
-	"mytonstorage-gateway/pkg/workers/cleaner"
 )
 
 func main() {
@@ -68,31 +66,9 @@ func run() (err error) {
 		[]string{"method", "error"},
 	)
 
-	workersRunCount := prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: config.Metrics.Namespace,
-			Subsystem: config.Metrics.DbSubsystem,
-			Name:      "workers_requests_count",
-			Help:      "Workers requests count",
-		},
-		[]string{"method", "error"},
-	)
-
-	workersRunDuration := prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: config.Metrics.Namespace,
-			Subsystem: config.Metrics.DbSubsystem,
-			Name:      "workers_requests_duration",
-			Help:      "Workers requests duration",
-		},
-		[]string{"method", "error"},
-	)
-
 	prometheus.MustRegister(
 		dbRequestsCount,
 		dbRequestsDuration,
-		workersRunCount,
-		workersRunDuration,
 	)
 
 	// Postgres
@@ -106,10 +82,6 @@ func run() (err error) {
 	filesRepo := filesRepository.NewRepository(connPool)
 	filesRepo = filesRepository.NewCache(filesRepo)
 	filesRepo = filesRepository.NewMetrics(dbRequestsCount, dbRequestsDuration, filesRepo)
-
-	// Workers
-	cleanerWorker := cleaner.NewWorker(filesRepo, logger)
-	cleanerWorker = cleaner.NewMetrics(workersRunCount, workersRunDuration, cleanerWorker)
 
 	// Clients
 	creds := tonstorage.Credentials{
@@ -165,17 +137,6 @@ func run() (err error) {
 
 	server.RegisterRoutes()
 
-	// Workers run
-	cancelCtx, cancel := context.WithCancel(context.Background())
-	workers := workers.NewWorkers(cleanerWorker, logger)
-	go func() {
-		if wErr := workers.Start(cancelCtx); wErr != nil {
-			logger.Error("failed to start workers", slog.String("error", wErr.Error()))
-			err = wErr
-			return
-		}
-	}()
-
 	go func() {
 		if err := app.Listen(":" + config.System.Port); err != nil {
 			logger.Error("error starting server", slog.String("err", err.Error()))
@@ -186,7 +147,6 @@ func run() (err error) {
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
 	<-signalChan
-	cancel()
 
 	if rstorage != nil {
 		rstorage.Close()

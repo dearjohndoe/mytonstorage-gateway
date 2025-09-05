@@ -157,7 +157,6 @@ func (s *service) AddReport(ctx context.Context, report v1.Report) error {
 		Comment: report.Comment,
 	}
 
-	// TODO: use cache/worker against ddos
 	if err := s.files.AddReport(ctx, dbReport); err != nil {
 		log.Error("failed to add report", slog.String("error", err.Error()))
 		return models.NewAppError(models.InternalServerErrorCode, "")

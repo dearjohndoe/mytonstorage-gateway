@@ -47,7 +47,7 @@ func (h *handler) RegisterRoutes() {
 
 	apiv1 := h.server.Group("/api/v1", h.loggerMiddleware)
 	{
-		gateway := apiv1.Group("/gateway")
+		gateway := apiv1.Group("/gateway", h.securityHeadersMiddleware)
 
 		gateway.Get("/:bagid", h.getBag)
 		gateway.Get("/:bagid/*", h.getPath)
