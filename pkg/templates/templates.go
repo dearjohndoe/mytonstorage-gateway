@@ -55,9 +55,13 @@ func (t *htmlTemplates) HtmlFilesListWithTemplate(f private.FolderInfo, path str
 	f.BagID = strings.ToUpper(f.BagID)
 
 	data := TemplateData{
-		Title:    filepath.Join(f.BagID, path),
-		FullPath: filepath.Join(f.BagID, path),
-		Files:    make([]FileData, 0, len(f.Files)),
+		Title:       filepath.Join(f.BagID, path),
+		FullPath:    filepath.Join(f.BagID, path),
+		TotalSize:   utils.FormatSize(f.TotalSize),
+		Description: f.Description,
+		PeersCount:  f.PeersCount,
+		FileCount:   len(f.Files),
+		Files:       make([]FileData, 0, len(f.Files)),
 	}
 
 	if path != "" {

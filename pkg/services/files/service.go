@@ -65,9 +65,12 @@ func (s *service) getFromLocalStorage(ctx context.Context, bagID, path string, l
 	}
 
 	info := private.FolderInfo{
-		IsValid: true,
-		BagID:   bagID,
-		Files:   ls(bag.Files, path),
+		IsValid:     true,
+		BagID:       bagID,
+		PeersCount:  len(bag.Peers),
+		TotalSize:   bag.Size,
+		Description: bag.Description,
+		Files:       ls(bag.Files, path),
 	}
 
 	if s.isSingleFile(info.Files, path) {
