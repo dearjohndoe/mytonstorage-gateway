@@ -97,11 +97,16 @@ func (t *htmlTemplates) HtmlFilesListWithTemplate(f private.FolderInfo, path str
 			href = filepath.Join(APIBase, f.BagID, path, file.Name)
 		}
 
+		fileSize := utils.FormatSize(file.Size)
+		if file.Size == 0 {
+			fileSize = "folder"
+		}
+
 		data.Files = append(data.Files, FileData{
 			Name:          file.Name,
 			Href:          href,
 			Icon:          icon,
-			FormattedSize: utils.FormatSize(file.Size),
+			FormattedSize: fileSize,
 		})
 	}
 

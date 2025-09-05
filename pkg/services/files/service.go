@@ -91,15 +91,18 @@ func (s *service) getFromRemoteStorage(ctx context.Context, bagID, path string, 
 		return private.FolderInfo{}, models.NewAppError(models.NotFoundErrorCode, "bag not found")
 	}
 
-	if len(files) == 0 {
+	if len(files.Files) == 0 {
 		log.Warn("no files found in remote", slog.String("bagID", bagID))
 		return private.FolderInfo{}, models.NewAppError(models.NotFoundErrorCode, "bag not found")
 	}
 
 	info := private.FolderInfo{
-		IsValid: true,
-		BagID:   bagID,
-		Files:   ls(files, path),
+		IsValid:     true,
+		BagID:       bagID,
+		Description: files.Description,
+		TotalSize:   files.TotalSize,
+		PeersCount:  files.PeersCount,
+		Files:       ls(files.Files, path),
 	}
 
 	if s.isSingleFile(info.Files, path) {

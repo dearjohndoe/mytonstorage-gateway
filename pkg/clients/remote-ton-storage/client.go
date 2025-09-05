@@ -26,8 +26,15 @@ var ErrNotFound = errors.New("not found")
 
 type Client interface {
 	StreamFile(ctx context.Context, bagID, path string) (rc io.ReadCloser, size uint64, err error)
-	ListFiles(ctx context.Context, bagID string) ([]tonapi.File, error)
+	ListFiles(ctx context.Context, bagID string) (BagInfo, error)
 	Close()
+}
+
+type BagInfo struct {
+	Description string
+	TotalSize   uint64
+	PeersCount  int
+	Files       []tonapi.File
 }
 
 type client struct {
@@ -95,17 +102,17 @@ func (c *client) StreamFile(ctx context.Context, bagID, path string) (io.ReadClo
 }
 
 // ListFiles returns all files in the bag with sizes by loading the torrent header via ADNL.
-func (c *client) ListFiles(ctx context.Context, bagID string) ([]tonapi.File, error) {
+func (c *client) ListFiles(ctx context.Context, bagID string) (BagInfo, error) {
 	torrent, _, err := c.getTorrent(ctx, bagID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get torrent: %w", err)
+		return BagInfo{}, fmt.Errorf("failed to get torrent: %w", err)
 	}
 
 	files := make([]tonapi.File, 0, torrent.Header.FilesCount)
 	for i := uint32(0); i < torrent.Header.FilesCount; i++ {
 		info, err := torrent.GetFileOffsetsByID(i)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %d: %w", i, err)
+			return BagInfo{}, fmt.Errorf("failed to read file %d: %w", i, err)
 		}
 		files = append(files, tonapi.File{
 			Index: info.Index,
@@ -113,7 +120,13 @@ func (c *client) ListFiles(ctx context.Context, bagID string) ([]tonapi.File, er
 			Size:  info.Size,
 		})
 	}
-	return files, nil
+
+	return BagInfo{
+		TotalSize:   torrent.Info.FileSize,
+		Description: torrent.Info.Description.Value,
+		PeersCount:  len(torrent.GetPeers()),
+		Files:       files,
+	}, nil
 }
 
 func (c *client) Close() {
