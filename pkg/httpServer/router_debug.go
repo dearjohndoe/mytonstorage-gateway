@@ -59,17 +59,16 @@ func (h *handler) RegisterRoutes() {
 	{
 		reports := apiv1.Group("/reports")
 
-		reports.Get("", h.requireBans(), h.getAllReports)
-		reports.Get("/:bagid", h.requireBans(), h.getReportsByBagID)
-		reports.Get("/:bagid/ban", h.requireBans(), h.getBan)
-		reports.Put("", h.requireBans(), h.updateBanStatus)
-
-		reports.Put("/:bagid", h.requireReports(), h.addReport)
+		reports.Get("", h.requireReports(), h.getReports)
+		reports.Post("", h.requireReports(), h.addReport)
+		reports.Get("/:bagid", h.requireReports(), h.getReportsByBagID)
 	}
 
 	{
 		bans := apiv1.Group("/bans")
 
 		bans.Get("", h.requireBans(), h.getAllBans)
+		bans.Put("", h.requireBans(), h.updateBanStatus)
+		bans.Get("/:bagid", h.requireBans(), h.getBan)
 	}
 }

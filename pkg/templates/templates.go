@@ -13,10 +13,12 @@ import (
 const APIBase = "/api/v1/gateway"
 
 var (
-	imageFormats = []string{".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".tiff", ".ico", ".avif"}
-	videoFormats = []string{".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv", ".wmv"}
-	audioFormats = []string{".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a"}
-	textFormats  = []string{".txt", ".md", ".csv", ".json", ".xml", ".html", ".css", ".js", ".ts", ".py", ".go", ".java", ".c", ".cpp", ".h", ".php", ".rb", ".sh"}
+	imageFormats = []string{"jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "tiff", "ico", "avif"}
+	videoFormats = []string{"mp4", "mkv", "webm", "avi", "mov", "flv", "wmv"}
+	audioFormats = []string{"mp3", "wav", "ogg", "flac", "aac", "m4a"}
+	textFormats  = []string{"txt", "md", "csv", "json", "xml", "html", "htm", "xhtml", "css", "js", "ts", "py", "go", "java", "c", "cpp", "h", "php", "rb", "sh"}
+
+	htmlFormats = []string{"html", "htm", "xhtml"}
 )
 
 type htmlTemplates struct {
@@ -24,23 +26,52 @@ type htmlTemplates struct {
 }
 
 type Templates interface {
-	ContentType(ext, filename string) (string, string)
+	ContentType(filename string) ContentType
 	ErrorTemplate(err error) (string, error)
 	HtmlFilesListWithTemplate(f private.FolderInfo, path string) (string, error)
 }
 
-func (t *htmlTemplates) ContentType(ext, filename string) (header, value string) {
-	if slices.Contains(imageFormats, ext) {
-		return "Content-Type", "image/" + strings.TrimPrefix(ext, ".")
-	} else if slices.Contains(videoFormats, ext) {
-		return "Content-Type", "video/" + strings.TrimPrefix(ext, ".")
-	} else if slices.Contains(audioFormats, ext) {
-		return "Content-Type", "audio/" + strings.TrimPrefix(ext, ".")
-	} else if slices.Contains(textFormats, ext) {
-		return "Content-Type", "text/" + strings.TrimPrefix(ext, ".")
+// ContentType returns the appropriate Content-Type header and value based on the file extension.
+// If the file type is not recognized, it returns a Content-Disposition header to prompt download.
+func (t *htmlTemplates) ContentType(filename string) ContentType {
+	ext := strings.ToLower(filepath.Ext(filename))
+	ext = strings.TrimPrefix(ext, ".")
+	if index := slices.IndexFunc(imageFormats, func(s string) bool { return strings.HasSuffix(ext, s) }); index != -1 {
+		return ContentType{
+			Header:     "Content-Type",
+			Value:      "image/" + imageFormats[index],
+			IsDownload: false,
+			IsHtml:     false,
+		}
+	} else if index := slices.IndexFunc(videoFormats, func(s string) bool { return strings.HasSuffix(ext, s) }); index != -1 {
+		return ContentType{
+			Header:     "Content-Type",
+			Value:      "video/" + videoFormats[index],
+			IsDownload: false,
+			IsHtml:     false,
+		}
+	} else if index := slices.IndexFunc(audioFormats, func(s string) bool { return strings.HasSuffix(ext, s) }); index != -1 {
+		return ContentType{
+			Header:     "Content-Type",
+			Value:      "audio/" + audioFormats[index],
+			IsDownload: false,
+			IsHtml:     false,
+		}
+	} else if index := slices.IndexFunc(textFormats, func(s string) bool { return strings.HasSuffix(ext, s) }); index != -1 {
+		return ContentType{
+			Header:     "Content-Type",
+			Value:      "text/" + textFormats[index],
+			IsDownload: false,
+			IsHtml:     slices.Contains(htmlFormats, textFormats[index]),
+		}
 	}
 
-	return "Content-Disposition", `attachment; filename="` + filename + `"`
+	return ContentType{
+		Header:     "Content-Disposition",
+		Value:      `attachment; filename="` + filename + `"`,
+		IsDownload: true,
+		IsHtml:     false,
+	}
 }
 
 func (t *htmlTemplates) ErrorTemplate(err error) (string, error) {

@@ -4,14 +4,20 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"mytonstorage-gateway/pkg/iframewrap"
+	"mytonstorage-gateway/pkg/models"
 	v1 "mytonstorage-gateway/pkg/models/api/v1"
+	"mytonstorage-gateway/pkg/models/private"
+	htmlTemplates "mytonstorage-gateway/pkg/templates"
 )
 
 func (h *handler) limitReached(c *fiber.Ctx) error {
@@ -63,7 +69,7 @@ func (h *handler) getPath(c *fiber.Ctx) (err error) {
 	return h.getBagInfoResponse(c, bagid, decodedPath, log)
 }
 
-func (h *handler) getAllReports(c *fiber.Ctx) error {
+func (h *handler) getReports(c *fiber.Ctx) error {
 	log := h.logger.With(
 		slog.String("func", "getAllReports"),
 		slog.String("method", c.Method()),
@@ -250,17 +256,8 @@ func (h *handler) getBagInfoResponse(c *fiber.Ctx, bagid, path string, log *slog
 		return errorHandler(c, err)
 	}
 
-	if bagInfo.StreamFile != nil {
-		// stream from remote storage
-		_, file := filepath.Split(path)
-		ext := strings.ToLower(filepath.Ext(file))
-		header, value := h.templates.ContentType(ext, file)
-		c.Set(header, value)
-
-		return c.SendStream(bagInfo.StreamFile.FileStream, int(bagInfo.StreamFile.Size))
-	} else if bagInfo.SingleFilePath != "" {
-		// serve single file from local storage
-		return c.SendFile(bagInfo.SingleFilePath)
+	if bagInfo.StreamFile != nil || bagInfo.SingleFilePath != "" {
+		return h.serveFile(c, bagInfo, h.templates.ContentType(filepath.Ext(path)))
 	}
 
 	// serve directory
@@ -275,6 +272,57 @@ func (h *handler) getBagInfoResponse(c *fiber.Ctx, bagid, path string, log *slog
 	}
 
 	return c.Type("html").SendString(html)
+}
+
+func (h *handler) serveFile(c *fiber.Ctx, bagInfo private.FolderInfo, ct htmlTemplates.ContentType) error {
+	if ct.IsDownload {
+		c.Response().Header.Set(ct.Header, ct.Value)
+	} else {
+		c.Response().Header.SetContentType(ct.Value)
+	}
+
+	if ct.IsHtml {
+		var htmlContent string
+
+		if bagInfo.StreamFile != nil {
+			buf := make([]byte, bagInfo.StreamFile.Size)
+			_, err := bagInfo.StreamFile.FileStream.Read(buf)
+			if err != nil {
+				return errorHandler(c, err)
+			}
+
+			htmlContent = string(buf)
+		} else if bagInfo.SingleFilePath != "" {
+			content, err := os.ReadFile(bagInfo.SingleFilePath)
+			if err != nil {
+				return errorHandler(c, err)
+			}
+
+			htmlContent = string(content)
+		} else {
+			return errorHandler(c, fiber.NewError(fiber.StatusNotFound, "file not found"))
+		}
+
+		iframeHTML, err := iframewrap.WrapHTML(htmlContent, iframewrap.Options{
+			AllowScripts: true,
+			AllowForms:   true,
+		})
+		if err != nil {
+			log.Error("failed to create iframe wrapper", slog.String("error", err.Error()))
+			err = models.NewAppError(models.InternalServerErrorCode, "")
+			return errorHandler(c, err)
+		}
+
+		return c.SendString(iframeHTML)
+	}
+
+	if bagInfo.StreamFile != nil {
+		return c.SendStream(bagInfo.StreamFile.FileStream, int(bagInfo.StreamFile.Size))
+	} else if bagInfo.SingleFilePath != "" {
+		return c.SendFile(bagInfo.SingleFilePath)
+	}
+
+	return errorHandler(c, fiber.NewError(fiber.StatusNotFound, "file not found"))
 }
 
 func (h *handler) health(c *fiber.Ctx) error {
