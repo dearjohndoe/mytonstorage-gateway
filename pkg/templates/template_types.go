@@ -15,6 +15,13 @@ type TemplateError struct {
 	Error string
 }
 
+type ContentType struct {
+	Header     string
+	Value      string
+	IsDownload bool
+	IsHtml     bool
+}
+
 type ParentDirData struct {
 	Href string
 }
