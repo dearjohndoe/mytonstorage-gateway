@@ -1,0 +1,37 @@
+meta {
+  name: Health Check
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{api_base}}/health
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  # Health Check
+  
+  Проверяет состояние сервиса.
+  
+  ## Responses
+  
+  ### Success (200)
+  ```json
+  {
+    "status": "ok"
+  }
+  ```
+  
+  ### Error (429)
+  ```json
+  {
+    "error": "too many requests, please try again later"
+  }
+  ```
+}

@@ -29,30 +29,30 @@ func (h *handler) RegisterRoutes() {
 	}))
 
 	apiv1 := h.server.Group("/api/v1", h.loggerMiddleware)
+
+	apiv1.Get("/health", h.health)
+	apiv1.Get("/metrics", h.requireMetrics(), h.metrics)
+
 	{
 		gateway := apiv1.Group("/gateway", h.securityHeadersMiddleware)
 
 		gateway.Get("/:bagid", h.getBag)
 		gateway.Get("/:bagid/*", h.getPath)
-
-		gateway.Get("/health", h.health)
-		gateway.Get("/metrics", h.requireMetrics(), h.metrics)
 	}
 
 	{
 		reports := apiv1.Group("/reports")
 
-		reports.Get("", h.requireBans(), h.getAllReports)
-		reports.Get("/:bagid", h.requireBans(), h.getReportsByBagID)
-		reports.Get("/:bagid/ban", h.requireBans(), h.getBan)
-		reports.Put("", h.requireBans(), h.updateBanStatus)
-
-		reports.Put("/:bagid", h.requireReports(), h.addReport)
+		reports.Get("", h.requireReports(), h.getReports)
+		reports.Post("", h.requireReports(), h.addReport)
+		reports.Get("/:bagid", h.requireReports(), h.getReportsByBagID)
 	}
 
 	{
 		bans := apiv1.Group("/bans")
 
 		bans.Get("", h.requireBans(), h.getAllBans)
+		bans.Put("", h.requireBans(), h.updateBanStatus)
+		bans.Get("/:bagid", h.requireBans(), h.getBan)
 	}
 }

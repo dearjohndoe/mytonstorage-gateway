@@ -1,0 +1,47 @@
+meta {
+  name: Get Metrics
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{api_base}}/metrics
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: text/plain
+}
+
+auth:bearer {
+  token: {{metrics_token}}
+}
+
+docs {
+  # Get Metrics
+  
+  Получает метрики Prometheus для мониторинга.
+  
+  ## Authentication
+  Требует Bearer токен в заголовке Authorization.
+  
+  ## Responses
+  
+  ### Success (200)
+  - Метрики в формате Prometheus (text/plain)
+  
+  ### Error (401)
+  ```json
+  {
+    "error": "unauthorized"
+  }
+  ```
+  
+  ### Error (429)
+  ```json
+  {
+    "error": "too many requests, please try again later"
+  }
+  ```
+}

@@ -1,0 +1,74 @@
+meta {
+  name: Get All Bans
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{api_base}}/bans?limit=100&offset=0
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{bans_token}}
+}
+
+headers {
+  Accept: application/json
+}
+
+params:query {
+  limit: 100
+  offset: 0
+}
+
+docs {
+  # Get All Bans
+  
+  Получает список всех банов с пагинацией.
+  
+  ## Authentication
+  Требует Bearer токен в заголовке Authorization.
+  
+  ## Query Parameters
+  - `limit` (int, optional): Количество записей (по умолчанию 100)
+  - `offset` (int, optional): Смещение для пагинации (по умолчанию 0)
+  
+  ## Responses
+  
+  ### Success (200)
+  ```json
+  {
+    "bans": [
+      {
+        "bag_id": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "admin": "admin@example.com",
+        "reason": "violations",
+        "comment": "Content violates community guidelines"
+      }
+    ]
+  }
+  ```
+  
+  ### Error (401)
+  ```json
+  {
+    "error": "unauthorized"
+  }
+  ```
+  
+  ### Error (500)
+  ```json
+  {
+    "error": "internal server error"
+  }
+  ```
+  
+  ### Error (429)
+  ```json
+  {
+    "error": "too many requests, please try again later"
+  }
+  ```
+}

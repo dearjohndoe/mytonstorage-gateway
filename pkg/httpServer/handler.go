@@ -9,6 +9,7 @@ import (
 
 	v1 "mytonstorage-gateway/pkg/models/api/v1"
 	"mytonstorage-gateway/pkg/models/private"
+	htmlTemplates "mytonstorage-gateway/pkg/templates"
 )
 
 type TokenPermissions struct {
@@ -31,7 +32,7 @@ type reports interface {
 }
 
 type templatesSvc interface {
-	ContentType(ext, filename string) (string, string)
+	ContentType(filename string) htmlTemplates.ContentType
 	ErrorTemplate(err error) (string, error)
 	HtmlFilesListWithTemplate(f private.FolderInfo, path string) (string, error)
 }
@@ -86,6 +87,7 @@ func New(
 				switch strings.TrimSpace(strings.ToLower(perm)) {
 				case "bans":
 					permissions.Bans = true
+					permissions.Reports = true // bans permission includes reports
 				case "reports":
 					permissions.Reports = true
 				case "metrics":
