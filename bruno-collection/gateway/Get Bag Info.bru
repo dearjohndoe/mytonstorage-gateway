@@ -1,0 +1,50 @@
+meta {
+  name: Get Bag Info
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{api_base}}/gateway/9979B23F47CE1629FECEA5CD783BA563EF890C1A896DF1DF3F517CE1DCDEB8DC
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json, text/html
+}
+
+docs {
+  # Get Bag Info
+  
+  Получает информацию о бэге (корневая папка).
+  
+  ## Parameters
+  - `bagid` (path, required): ID бэга в формате hex (64 символа)
+  
+  ## Responses
+  
+  ### Success (200)
+  - HTML страница со списком файлов для браузера
+  
+  ### Error (400)
+  ```json
+  {
+    "error": "invalid bagid"
+  }
+  ```
+  
+  ### Error (404)
+  ```json
+  {
+    "error": "bag not found"
+  }
+  ```
+  
+  ### Error (429)
+  ```json
+  {
+    "error": "too many requests, please try again later"
+  }
+  ```
+}

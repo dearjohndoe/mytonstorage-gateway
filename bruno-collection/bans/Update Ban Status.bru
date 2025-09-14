@@ -1,0 +1,94 @@
+meta {
+  name: Update Ban Status
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{api_base}}/bans
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{bans_token}}
+}
+
+body:json {
+  [
+    {
+      "bag_id": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "admin": "admin@example.com",
+      "reason": "spam",
+      "comment": "Content contains spam and violates guidelines",
+      "status": true
+    }
+  ]
+}
+
+docs {
+  # Update Ban Status
+  
+  Обновляет статус бана для одного или нескольких бэгов.
+  
+  ## Authentication
+  Требует Bearer токен в заголовке Authorization.
+  
+  ## Request Body
+  Массив объектов BanStatus:
+  ```json
+  [
+    {
+      "bag_id": "string",    // ID бэга в формате hex (64 символа) (required)
+      "admin": "string",     // Email администратора (required) 
+      "reason": "string",    // Причина бана (required)
+      "comment": "string",   // Комментарий (required)
+      "status": boolean      // true = забанить, false = разбанить (required)
+    }
+  ]
+  ```
+  
+  ## Responses
+  
+  ### Success (200)
+  - HTTP 200 OK (без тела ответа)
+  
+  ### Error (400)
+  ```json
+  {
+    "error": "invalid gzip body"
+  }
+  ```
+  
+  ```json
+  {
+    "error": "invalid request body"
+  }
+  ```
+  
+  ### Error (401)
+  ```json
+  {
+    "error": "unauthorized"
+  }
+  ```
+  
+  ### Error (500)
+  ```json
+  {
+    "error": "internal server error"
+  }
+  ```
+  
+  ### Error (429)
+  ```json
+  {
+    "error": "too many requests, please try again later"
+  }
+  ```
+}

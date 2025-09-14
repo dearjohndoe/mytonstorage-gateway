@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "My TON Storage Gateway API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

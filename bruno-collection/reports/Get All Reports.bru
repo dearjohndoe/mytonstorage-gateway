@@ -1,0 +1,75 @@
+meta {
+  name: Get All Reports
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{api_base}}/reports?limit=100&offset=0
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{reports_token}}
+}
+
+headers {
+  Accept: application/json
+}
+
+params:query {
+  limit: 100
+  offset: 0
+}
+
+docs {
+  # Get All Reports
+  
+  Получает список всех жалоб с пагинацией.
+  
+  ## Authentication
+  Требует Bearer токен в заголовке Authorization.
+  
+  ## Query Parameters
+  - `limit` (int, optional): Количество записей (по умолчанию 100)
+  - `offset` (int, optional): Смещение для пагинации (по умолчанию 0)
+  
+  ## Responses
+  
+  ### Success (200)
+  ```json
+  {
+    "reports": [
+      {
+        "bag_id": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "reason": "spam",
+        "sender": "user@example.com",
+        "comment": "This content contains spam",
+        "created_at": 1641024000
+      }
+    ]
+  }
+  ```
+  
+  ### Error (401)
+  ```json
+  {
+    "error": "unauthorized"
+  }
+  ```
+  
+  ### Error (500)
+  ```json
+  {
+    "error": "internal server error"
+  }
+  ```
+  
+  ### Error (429)
+  ```json
+  {
+    "error": "too many requests, please try again later"
+  }
+  ```
+}

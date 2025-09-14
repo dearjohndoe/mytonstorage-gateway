@@ -1,0 +1,73 @@
+meta {
+  name: Get Ban by Bag ID
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{api_base}}/bans/9979B23F47CE1629FECEA5CD783BA563EF890C1A896DF1DF3F517CE1DCDEB8DC
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{bans_token}}
+}
+
+docs {
+  # Get Ban by Bag ID
+  
+  Получает информацию о бане для конкретного бэга.
+  
+  ## Authentication
+  Требует Bearer токен в заголовке Authorization.
+  
+  ## Parameters
+  - `bagid` (path, required): ID бэга в формате hex (64 символа)
+  
+  ## Responses
+  
+  ### Success (200)
+  ```json
+  {
+    "ban": {
+      "bag_id": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "admin": "admin@example.com",
+      "reason": "violations",
+      "comment": "Content violates community guidelines"
+    }
+  }
+  ```
+  
+  ### Error (400)
+  ```json
+  {
+    "error": "invalid bagid"
+  }
+  ```
+  
+  ### Error (401)
+  ```json
+  {
+    "error": "unauthorized"
+  }
+  ```
+  
+  ### Error (500)
+  ```json
+  {
+    "error": "internal server error"
+  }
+  ```
+  
+  ### Error (429)
+  ```json
+  {
+    "error": "too many requests, please try again later"
+  }
+  ```
+}

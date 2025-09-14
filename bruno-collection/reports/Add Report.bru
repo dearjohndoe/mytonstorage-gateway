@@ -1,0 +1,94 @@
+meta {
+  name: Add Report
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{api_base}}/reports
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{reports_token}}
+}
+
+body:json {
+  {
+    "bag_id": "123BA2C0076C0A587C888966F3DCBA70A47BB56FC99F31D46F6F28D98DDA8231",
+    "reason": "spam",
+    "sender": "user@example.com",
+    "comment": "This content contains inappropriate material"
+  }
+}
+
+docs {
+  # Add Report
+  
+  Добавляет новую жалобу на контент.
+  
+  ## Authentication
+  Требует Bearer токен в заголовке Authorization.
+  
+  ## Request Body
+  ```json
+  {
+    "reason": "string", // Причина жалобы (required)
+    "sender": "string", // Email отправителя (required)
+    "comment": "string" // Дополнительный комментарий (required)
+  }
+  ```
+  
+  Примечание: `bag_id` берется из URL параметра и автоматически добавляется к репорту.
+  
+  ## Responses
+  
+  ### Success (200)
+  - HTTP 200 OK (без тела ответа)
+  
+  ### Error (400)
+  ```json
+  {
+    "error": "invalid bagid"
+  }
+  ```
+  
+  ```json
+  {
+    "error": "invalid request body"
+  }
+  ```
+  
+  ```json
+  {
+    "error": "invalid gzip body"
+  }
+  ```
+  
+  ### Error (401)
+  ```json
+  {
+    "error": "unauthorized"
+  }
+  ```
+  
+  ### Error (500)
+  ```json
+  {
+    "error": "internal server error"
+  }
+  ```
+  
+  ### Error (429)
+  ```json
+  {
+    "error": "too many requests, please try again later"
+  }
+  ```
+}

@@ -6,8 +6,6 @@
 /.vscode/*
 /.DS_Store
 /.env.*
-/bruno-collection
-/bruno-collection/*
 *.env
 *mtpo-backend
 *.log

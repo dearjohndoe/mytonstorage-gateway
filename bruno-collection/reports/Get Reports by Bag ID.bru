@@ -1,0 +1,76 @@
+meta {
+  name: Get Reports by Bag ID
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{api_base}}/reports/123BA2C0076C0A587C888966F3DCBA70A47BB56FC99F31D46F6F28D98DDA8231
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{reports_token}}
+}
+
+docs {
+  # Get Reports by Bag ID
+  
+  Получает все жалобы для конкретного бэга.
+  
+  ## Authentication
+  Требует Bearer токен в заголовке Authorization.
+  
+  ## Parameters
+  - `bagid` (path, required): ID бэга в формате hex (64 символа)
+  
+  ## Responses
+  
+  ### Success (200)
+  ```json
+  {
+    "reports": [
+      {
+        "bag_id": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        "reason": "spam",
+        "sender": "user@example.com", 
+        "comment": "This content contains spam",
+        "created_at": 1641024000
+      }
+    ]
+  }
+  ```
+  
+  ### Error (400)
+  ```json
+  {
+    "error": "invalid bagid"
+  }
+  ```
+  
+  ### Error (401)
+  ```json
+  {
+    "error": "unauthorized"
+  }
+  ```
+  
+  ### Error (500)
+  ```json
+  {
+    "error": "internal server error"
+  }
+  ```
+  
+  ### Error (429)
+  ```json
+  {
+    "error": "too many requests, please try again later"
+  }
+  ```
+}

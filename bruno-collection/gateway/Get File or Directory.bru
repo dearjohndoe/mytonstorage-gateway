@@ -1,0 +1,68 @@
+meta {
+  name: Get File or Directory
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{api_base}}/gateway/9979B23F47CE1629FECEA5CD783BA563EF890C1A896DF1DF3F517CE1DCDEB8DC/path/to/file.txt
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json, text/html, application/octet-stream
+}
+
+docs {
+  # Get File or Directory
+  
+  Получает файл или информацию о директории по указанному пути внутри бэга.
+  
+  ## Parameters
+  - `bagid` (path, required): ID бэга в формате hex (64 символа)
+  - `*` (path, required): Путь к файлу или директории (URL encoded)
+  
+  ## Responses
+  
+  ### Success (200) - File
+  - Содержимое файла с соответствующим Content-Type
+  - HTML файлы оборачиваются в iframe для безопасности
+  - Бинарные файлы возвращаются как есть
+  
+  ### Success (200) - Directory
+  - HTML страница со списком файлов в директории
+  
+  ### Error (400)
+  ```json
+  {
+    "error": "invalid bagid"
+  }
+  ```
+  
+  ```json
+  {
+    "error": "invalid path encoding"
+  }
+  ```
+  
+  ### Error (404)
+  ```json
+  {
+    "error": "bag not found"
+  }
+  ```
+  
+  ```json
+  {
+    "error": "file not found"
+  }
+  ```
+  
+  ### Error (429)
+  ```json
+  {
+    "error": "too many requests, please try again later"
+  }
+  ```
+}
