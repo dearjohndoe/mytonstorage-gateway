@@ -15,7 +15,7 @@ type Options struct {
 }
 
 func WrapHTML(userHTML string, o Options) (string, error) {
-	iframeAttrs := []string{"sandbox"}
+	iframeAttrs := make([]string, 0, 3)
 	if o.AllowScripts {
 		iframeAttrs = append(iframeAttrs, "allow-scripts")
 	}

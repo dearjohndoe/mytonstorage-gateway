@@ -83,9 +83,8 @@ func (h *handler) securityHeadersMiddleware(c *fiber.Ctx) error {
 	// Content-Security-Policy with sandbox directives to restrict capabilities
 	// allow-scripts - allows script execution
 	// allow-forms - allows form submission
-	// allow-popups - allows popup windows
 	// NOT including allow-same-origin - this prevents access to localStorage, cookies, etc.
-	c.Set("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-popups")
+	c.Set("Content-Security-Policy", "sandbox allow-scripts allow-forms")
 
 	// X-Frame-Options to prevent clickjacking
 	c.Set("X-Frame-Options", "DENY")
