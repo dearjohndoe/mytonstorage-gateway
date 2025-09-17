@@ -27,7 +27,6 @@ type htmlTemplates struct {
 
 type Templates interface {
 	ContentType(filename string) ContentType
-	ErrorTemplate(err error) (string, error)
 	HtmlFilesListWithTemplate(f private.FolderInfo, path string) (string, error)
 }
 
@@ -74,15 +73,7 @@ func (t *htmlTemplates) ContentType(filename string) ContentType {
 	}
 }
 
-func (t *htmlTemplates) ErrorTemplate(err error) (string, error) {
-	return t.renderTemplate("error.html", TemplateError{Error: err.Error()})
-}
-
 func (t *htmlTemplates) HtmlFilesListWithTemplate(f private.FolderInfo, path string) (string, error) {
-	if !f.IsValid {
-		return t.renderTemplate("error.html", TemplateError{Error: "Invalid path"})
-	}
-
 	f.BagID = strings.ToUpper(f.BagID)
 
 	data := TemplateData{

@@ -27,8 +27,8 @@ type BagsCache struct {
 }
 
 func (bc *BagsCache) Get(bagID string) (*tonstorage.Torrent, tonstorage.TorrentDownloader, bool) {
-	bc.mutex.RLock()
-	defer bc.mutex.RUnlock()
+	bc.mutex.Lock()
+	defer bc.mutex.Unlock()
 
 	entry, exists := bc.cache[strings.ToLower(bagID)]
 	if !exists {

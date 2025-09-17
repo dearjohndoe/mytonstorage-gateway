@@ -2,12 +2,13 @@ package files
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	remotets "mytonstorage-gateway/pkg/clients/remote-ton-storage"
+	remotes "mytonstorage-gateway/pkg/clients/remote-ton-storage"
 	tonstorageClient "mytonstorage-gateway/pkg/clients/ton-storage"
 	"mytonstorage-gateway/pkg/models"
 	v1 "mytonstorage-gateway/pkg/models/api/v1"
@@ -17,7 +18,7 @@ import (
 type service struct {
 	reports          reportsDb
 	tonstorage       storage
-	remoteTonStorage remotets.Client
+	remoteTonStorage remotes.Client
 	logger           *slog.Logger
 }
 
@@ -65,7 +66,6 @@ func (s *service) getFromLocalStorage(ctx context.Context, bagID, path string, l
 	}
 
 	info := private.FolderInfo{
-		IsValid:     true,
 		BagID:       bagID,
 		PeersCount:  len(bag.Peers),
 		TotalSize:   bag.Size,
@@ -87,17 +87,23 @@ func (s *service) getFromRemoteStorage(ctx context.Context, bagID, path string, 
 
 	files, err := s.remoteTonStorage.ListFiles(ctx, bagID)
 	if err != nil {
+		if errors.Is(err, remotes.ErrTimeout) {
+			return private.FolderInfo{
+				BagID:      bagID,
+				PeersCount: files.PeersCount,
+			}, models.NewAppError(models.NotFoundErrorCode, "bag not found")
+		}
+
 		log.Error("remote-ton-storage ListFiles failed", slog.String("error", err.Error()))
 		return private.FolderInfo{}, models.NewAppError(models.NotFoundErrorCode, "bag not found")
 	}
 
 	if len(files.Files) == 0 {
 		log.Warn("no files found in remote", slog.String("bagID", bagID))
-		return private.FolderInfo{}, models.NewAppError(models.NotFoundErrorCode, "bag not found")
+		return private.FolderInfo{}, models.NewAppError(models.NotFoundErrorCode, "bag doesn't contain any files")
 	}
 
 	info := private.FolderInfo{
-		IsValid:     true,
 		BagID:       bagID,
 		Description: files.Description,
 		TotalSize:   files.TotalSize,
@@ -120,15 +126,22 @@ func (s *service) isSingleFile(files []v1.File, path string) bool {
 }
 
 func (s *service) streamRemoteFile(ctx context.Context, bagID, path string, log *slog.Logger) (*private.StreamFile, error) {
-	rc, size, err := s.remoteTonStorage.StreamFile(ctx, bagID, path)
+	fs, err := s.remoteTonStorage.StreamFile(ctx, bagID, path)
 	if err != nil {
+		if errors.Is(err, remotes.ErrTimeout) {
+			return &private.StreamFile{
+				PeersCount: fs.PeersCount,
+			}, models.NewAppError(models.NotFoundErrorCode, "bag not found")
+		}
+
 		log.Error("failed to stream file from remote", slog.String("error", err.Error()))
 		return nil, models.NewAppError(models.InternalServerErrorCode, "")
 	}
 
 	return &private.StreamFile{
-		FileStream: rc,
-		Size:       size,
+		FileStream: fs.FileStream,
+		Size:       fs.Size,
+		PeersCount: fs.PeersCount,
 	}, nil
 }
 
@@ -208,7 +221,7 @@ func ls(files []tonstorageClient.File, path string) []v1.File {
 func NewService(
 	reports reportsDb,
 	tonstorage storage,
-	rstorage remotets.Client,
+	rstorage remotes.Client,
 	logger *slog.Logger,
 ) Files {
 	return &service{

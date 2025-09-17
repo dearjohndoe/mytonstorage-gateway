@@ -33,7 +33,6 @@ type reports interface {
 
 type templatesSvc interface {
 	ContentType(filename string) htmlTemplates.ContentType
-	ErrorTemplate(err error) (string, error)
 	HtmlFilesListWithTemplate(f private.FolderInfo, path string) (string, error)
 }
 
