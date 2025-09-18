@@ -57,9 +57,29 @@ func (t *htmlTemplates) ContentType(filename string) ContentType {
 			IsHtml:     false,
 		}
 	} else if index := slices.IndexFunc(textFormats, func(s string) bool { return strings.HasSuffix(ext, s) }); index != -1 {
+		var mimeType string
+		switch textFormats[index] {
+		case "txt", "md":
+			mimeType = "text/plain; charset=utf-8"
+		case "html", "htm", "xhtml":
+			mimeType = "text/html; charset=utf-8"
+		case "css":
+			mimeType = "text/css; charset=utf-8"
+		case "js":
+			mimeType = "application/javascript; charset=utf-8"
+		case "json":
+			mimeType = "application/json; charset=utf-8"
+		case "xml":
+			mimeType = "application/xml; charset=utf-8"
+		case "csv":
+			mimeType = "text/csv; charset=utf-8"
+		default:
+			mimeType = "text/plain; charset=utf-8"
+		}
+
 		return ContentType{
 			Header:     "Content-Type",
-			Value:      "text/" + textFormats[index],
+			Value:      mimeType,
 			IsDownload: false,
 			IsHtml:     slices.Contains(htmlFormats, textFormats[index]),
 		}
