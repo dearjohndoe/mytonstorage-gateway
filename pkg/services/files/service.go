@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -113,19 +114,26 @@ func (s *service) getFromRemoteStorage(ctx context.Context, bagID, path string, 
 		Files:       ls(files.Files, path),
 	}
 
-	if s.isSingleFile(info.Files, path) {
-		info.StreamFile, err = s.streamRemoteFile(ctx, bagID, path, log)
-		if err != nil {
-			log.Error("failed to stream file from remote", slog.String("error", err.Error()))
-			return private.FolderInfo{}, err
+	if slices.ContainsFunc(info.Files, func(f v1.File) bool {
+		return !f.IsFolder && strings.HasSuffix(path, f.Name)
+	}) {
+		if s.isSingleFile(info.Files, path) {
+			info.StreamFile, err = s.streamRemoteFile(ctx, bagID, path, log)
+			if err != nil {
+				log.Error("failed to stream file from remote", slog.String("error", err.Error()))
+				return info, err
+			}
 		}
+	} else if len(info.Files) == 0 {
+		log.Warn("path not found in remote", slog.String("path", path))
+		return info, models.NewAppError(models.NotFoundErrorCode, "path not found")
 	}
 
 	return info, nil
 }
 
 func (s *service) isSingleFile(files []v1.File, path string) bool {
-	return len(files) == 1 && !files[0].IsFolder && strings.HasSuffix(path, files[0].Name)
+	return len(files) == 1 && !files[0].IsFolder
 }
 
 func (s *service) streamRemoteFile(ctx context.Context, bagID, path string, log *slog.Logger) (*private.StreamFile, error) {
