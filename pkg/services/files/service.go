@@ -82,12 +82,14 @@ func (s *service) getFromLocalStorage(ctx context.Context, bagID, path string, l
 
 func (s *service) getFromRemoteStorage(ctx context.Context, bagID, path string, log *slog.Logger) (private.FolderInfo, error) {
 	if s.remoteTonStorage == nil {
+		log.Error("remote ton storage client is not configured")
 		return private.FolderInfo{}, models.NewAppError(models.NotFoundErrorCode, "bag not found")
 	}
 
 	files, err := s.remoteTonStorage.ListFiles(ctx, bagID)
 	if err != nil {
 		if errors.Is(err, remotes.ErrTimeout) {
+			log.Error("failed to list files from remote", slog.String("error", err.Error()))
 			return private.FolderInfo{
 				BagID:      bagID,
 				PeersCount: files.PeersCount,
@@ -114,6 +116,7 @@ func (s *service) getFromRemoteStorage(ctx context.Context, bagID, path string, 
 	if s.isSingleFile(info.Files, path) {
 		info.StreamFile, err = s.streamRemoteFile(ctx, bagID, path, log)
 		if err != nil {
+			log.Error("failed to stream file from remote", slog.String("error", err.Error()))
 			return private.FolderInfo{}, err
 		}
 	}
