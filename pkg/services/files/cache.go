@@ -26,7 +26,7 @@ func (c *cacheMiddleware) GetPathInfo(ctx context.Context, bagID, path string) (
 		return
 	}
 
-	if info.StreamFile != nil {
+	if info.StreamFile != nil || info.SingleFilePath != "" {
 		return
 	}
 

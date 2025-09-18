@@ -32,8 +32,7 @@ type TONStorage struct {
 }
 
 type RemoteTONStorageCache struct {
-	MaxCacheSize    uint64 `env:"REMOTE_TON_STORAGE_CACHE_MAX_SIZE" envDefault:"1073741824"` // 1GB
-	MaxCacheEntries int    `env:"REMOTE_TON_STORAGE_CACHE_MAX_ENTRIES" envDefault:"1000"`
+	MaxCacheEntries int `env:"REMOTE_TON_STORAGE_CACHE_MAX_ENTRIES" envDefault:"1000"`
 }
 
 type Metrics struct {

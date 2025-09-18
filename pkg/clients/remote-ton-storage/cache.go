@@ -9,7 +9,6 @@ import (
 )
 
 type BagsCacheConfig struct {
-	MaxCacheSize    uint64
 	MaxCacheEntries int
 }
 
@@ -75,12 +74,7 @@ func (bc *BagsCache) Clear() {
 }
 
 func (bc *BagsCache) freeUnsafe() (updated bool) {
-	var totalSize uint64
-	for _, entry := range bc.cache {
-		totalSize += entry.bagSize
-	}
-
-	if totalSize > bc.config.MaxCacheSize || len(bc.cache) > bc.config.MaxCacheEntries {
+	if len(bc.cache) > bc.config.MaxCacheEntries {
 		var oldestBagID string
 		oldestTime := time.Now()
 
@@ -103,11 +97,10 @@ func (bc *BagsCache) freeUnsafe() (updated bool) {
 	return
 }
 
-func NewBagsCache(maxCacheSize uint64, maxCacheEntries int) *BagsCache {
+func NewBagsCache(maxCacheEntries int) *BagsCache {
 	return &BagsCache{
 		cache: make(map[string]*torrentCacheEntry, maxCacheEntries),
 		config: BagsCacheConfig{
-			MaxCacheSize:    maxCacheSize,
 			MaxCacheEntries: maxCacheEntries,
 		},
 	}
