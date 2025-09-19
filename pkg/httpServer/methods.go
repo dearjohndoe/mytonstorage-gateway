@@ -326,6 +326,10 @@ func (h *handler) serveFile(c *fiber.Ctx, bagInfo private.FolderInfo, ct htmlTem
 	if bagInfo.StreamFile != nil {
 		return c.SendStream(bagInfo.StreamFile.FileStream, int(bagInfo.StreamFile.Size))
 	} else if bagInfo.SingleFilePath != "" {
+		if _, err := os.Stat(bagInfo.SingleFilePath); errors.Is(err, os.ErrNotExist) {
+			return errorHandler(c, fiber.NewError(fiber.StatusNotFound, "file not found"))
+		}
+
 		return c.SendFile(bagInfo.SingleFilePath)
 	}
 
