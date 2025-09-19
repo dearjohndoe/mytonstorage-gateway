@@ -14,10 +14,10 @@ type FolderInfo struct {
 	Description    string
 	BagID          string
 	SingleFilePath string
-	IsValid        bool
 }
 
 type StreamFile struct {
 	FileStream io.ReadCloser
 	Size       uint64
+	PeersCount int
 }

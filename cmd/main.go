@@ -92,7 +92,7 @@ func run() (err error) {
 		config.TONStorage.BaseURL,
 		&creds)
 
-	rBagsCache := remotetonstorage.NewBagsCache(config.RemoteTONStorageCache.MaxCacheSize, config.RemoteTONStorageCache.MaxCacheEntries)
+	rBagsCache := remotetonstorage.NewBagsCache(config.RemoteTONStorageCache.MaxCacheEntries)
 	rstorage, err := remotetonstorage.NewClient(context.Background(), "", rBagsCache)
 	if err != nil {
 		logger.Error("failed to create remote TON Storage client", slog.String("error", err.Error()))

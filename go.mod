@@ -9,7 +9,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/prometheus/client_golang v1.22.0
 	github.com/xssnick/tonutils-go v1.14.1
-	github.com/xssnick/tonutils-storage v1.2.1
+	github.com/xssnick/tonutils-storage v1.2.2
 )
 
 require (

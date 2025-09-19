@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/xssnick/tonutils-go/adnl"
@@ -23,9 +24,10 @@ import (
 )
 
 var ErrNotFound = errors.New("not found")
+var ErrTimeout = errors.New("timeout")
 
 type Client interface {
-	StreamFile(ctx context.Context, bagID, path string) (rc io.ReadCloser, size uint64, err error)
+	StreamFile(ctx context.Context, bagID, path string) (s FileStream, err error)
 	ListFiles(ctx context.Context, bagID string) (BagInfo, error)
 	Close()
 }
@@ -35,6 +37,12 @@ type BagInfo struct {
 	TotalSize   uint64
 	PeersCount  int
 	Files       []tonapi.File
+}
+
+type FileStream struct {
+	FileStream io.ReadCloser
+	Size       uint64
+	PeersCount int
 }
 
 type client struct {
@@ -52,15 +60,22 @@ type client struct {
 	store *VirtualStorage
 }
 
-func (c *client) StreamFile(ctx context.Context, bagID, path string) (io.ReadCloser, uint64, error) {
+func (c *client) StreamFile(ctx context.Context, bagID, path string) (FileStream, error) {
 	torrent, downloader, err := c.getTorrent(ctx, bagID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to get torrent: %w", err)
+		if errors.Is(err, ErrTimeout) && torrent != nil {
+			peers := torrent.GetPeers()
+			return FileStream{
+				PeersCount: len(peers),
+			}, ErrTimeout
+		}
+
+		return FileStream{}, err
 	}
 
 	fileInfo, err := torrent.GetFileOffsets(path)
 	if err != nil {
-		return nil, 0, ErrNotFound
+		return FileStream{}, err
 	}
 
 	pieces := make([]uint32, 0, (fileInfo.ToPiece-fileInfo.FromPiece)+1)
@@ -71,11 +86,18 @@ func (c *client) StreamFile(ctx context.Context, bagID, path string) (io.ReadClo
 	fetch := tonstorage.NewPreFetcher(ctx, torrent, downloader, func(event tonstorage.Event) {}, 64, pieces)
 	pr, pw := io.Pipe()
 
-	go func() {
+	go func(ctx context.Context) {
 		defer fetch.Stop()
 		defer pw.Close()
 
 		for p := fileInfo.FromPiece; p <= fileInfo.ToPiece; p++ {
+			select {
+			case <-ctx.Done():
+				_ = pw.CloseWithError(ctx.Err())
+				return
+			default:
+			}
+
 			data, _, err := fetch.Get(ctx, p)
 			if err != nil {
 				_ = pw.CloseWithError(fmt.Errorf("failed to download piece %d: %w", p, err))
@@ -96,15 +118,28 @@ func (c *client) StreamFile(ctx context.Context, bagID, path string) (io.ReadClo
 				return
 			}
 		}
-	}()
+	}(ctx)
 
-	return pr, fileInfo.Size, nil
+	peers := torrent.GetPeers()
+
+	return FileStream{
+		FileStream: pr,
+		Size:       fileInfo.Size,
+		PeersCount: len(peers),
+	}, nil
 }
 
 // ListFiles returns all files in the bag with sizes by loading the torrent header via ADNL.
 func (c *client) ListFiles(ctx context.Context, bagID string) (BagInfo, error) {
 	torrent, _, err := c.getTorrent(ctx, bagID)
 	if err != nil {
+		if errors.Is(err, ErrTimeout) && torrent != nil {
+			peers := torrent.GetPeers()
+			return BagInfo{
+				PeersCount: len(peers),
+			}, ErrTimeout
+		}
+
 		return BagInfo{}, fmt.Errorf("failed to get torrent: %w", err)
 	}
 
@@ -177,6 +212,11 @@ func (c *client) getTorrent(ctx context.Context, bagID string) (torrent *tonstor
 
 	downloader, err = c.conn.CreateDownloader(timeoutCtx, torrent)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "timeout") {
+			err = ErrTimeout
+			return
+		}
+
 		err = fmt.Errorf("failed to create downloader: %w", err)
 		return
 	}

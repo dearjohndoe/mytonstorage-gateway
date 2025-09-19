@@ -11,10 +11,6 @@ type TemplateData struct {
 	Files       []FileData
 }
 
-type TemplateError struct {
-	Error string
-}
-
 type ContentType struct {
 	Header     string
 	Value      string

@@ -2,7 +2,10 @@ package httpServer
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -245,13 +248,22 @@ func (h *handler) getBagInfoResponse(c *fiber.Ctx, bagid, path string, log *slog
 
 	bagInfo, err := h.files.GetPathInfo(c.Context(), bagid, path)
 	if err != nil {
-		log.Error("failed to get bag path", slog.String("error", err.Error()))
-		return errorHandler(c, err)
-	}
+		var appErr *models.AppError
+		if errors.As(err, &appErr) {
+			pc := float64(bagInfo.PeersCount)
+			if bagInfo.StreamFile != nil {
+				pc = math.Max(float64(bagInfo.StreamFile.PeersCount), pc)
+			}
 
-	if !bagInfo.IsValid {
-		log.Error("bag not found", slog.String("bagid", bagid))
-		err = fiber.NewError(fiber.StatusNotFound, "bag not found")
+			if pc > 0 {
+				err = fiber.NewError(fiber.StatusNotFound,
+					fmt.Sprintf("found %d peers, but request timed out", int(pc)))
+			}
+		} else {
+			log.Error("failed to get bag path", slog.String("error", err.Error()))
+			err = fiber.NewError(fiber.StatusInternalServerError, "")
+		}
+
 		return errorHandler(c, err)
 	}
 
@@ -262,12 +274,8 @@ func (h *handler) getBagInfoResponse(c *fiber.Ctx, bagid, path string, log *slog
 	// serve directory
 	html, err := h.templates.HtmlFilesListWithTemplate(bagInfo, path)
 	if err != nil {
-		var tErr error
-		html, tErr = h.templates.ErrorTemplate(err)
-		if tErr != nil {
-			log.Error("failed to render error template", slog.String("error", tErr.Error()))
-			return errorHandler(c, fiber.NewError(fiber.StatusInternalServerError, ""))
-		}
+		log.Error("failed to render directory template", slog.String("error", err.Error()))
+		return errorHandler(c, fiber.NewError(fiber.StatusInternalServerError, ""))
 	}
 
 	return c.Type("html").SendString(html)
@@ -318,6 +326,10 @@ func (h *handler) serveFile(c *fiber.Ctx, bagInfo private.FolderInfo, ct htmlTem
 	if bagInfo.StreamFile != nil {
 		return c.SendStream(bagInfo.StreamFile.FileStream, int(bagInfo.StreamFile.Size))
 	} else if bagInfo.SingleFilePath != "" {
+		if _, err := os.Stat(bagInfo.SingleFilePath); errors.Is(err, os.ErrNotExist) {
+			return errorHandler(c, fiber.NewError(fiber.StatusNotFound, "file not found"))
+		}
+
 		return c.SendFile(bagInfo.SingleFilePath)
 	}
 

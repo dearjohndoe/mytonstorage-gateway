@@ -60,9 +60,8 @@ func (h *handler) requireMetrics() fiber.Handler {
 
 func (h *handler) loggerMiddleware(c *fiber.Ctx) error {
 	headers := c.GetReqHeaders()
-	if _, ok := headers["Authorization"]; ok {
-		headers["Authorization"] = []string{"REDACTED"}
-	}
+	delete(headers, "Authorization")
+	delete(headers, "Cookie")
 
 	res := c.Next()
 
@@ -84,7 +83,7 @@ func (h *handler) securityHeadersMiddleware(c *fiber.Ctx) error {
 	// allow-scripts - allows script execution
 	// allow-forms - allows form submission
 	// NOT including allow-same-origin - this prevents access to localStorage, cookies, etc.
-	c.Set("Content-Security-Policy", "sandbox allow-scripts allow-forms")
+	c.Set("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-downloads")
 
 	// X-Frame-Options to prevent clickjacking
 	c.Set("X-Frame-Options", "DENY")
