@@ -36,6 +36,9 @@ type Files interface {
 }
 
 func (s *service) GetPathInfo(ctx context.Context, bagID, path string) (private.FolderInfo, error) {
+	path = filepath.Clean(path)
+	path = strings.ReplaceAll(path, "../", "")
+
 	log := s.logger.With(
 		slog.String("method", "GetPathInfo"),
 		slog.String("bagID", bagID),
@@ -66,6 +69,11 @@ func (s *service) getFromLocalStorage(ctx context.Context, bagID, path string, l
 		return private.FolderInfo{}, err
 	}
 
+	if len(bag.Files) == 0 {
+		log.Warn("no files found in local", slog.String("bagID", bagID))
+		return private.FolderInfo{}, models.NewAppError(models.NotFoundErrorCode, "bag doesn't contain any files")
+	}
+
 	info := private.FolderInfo{
 		BagID:       bagID,
 		PeersCount:  len(bag.Peers),
@@ -74,8 +82,15 @@ func (s *service) getFromLocalStorage(ctx context.Context, bagID, path string, l
 		Files:       ls(bag.Files, path),
 	}
 
-	if s.isSingleFile(info.Files, path) {
-		info.SingleFilePath = filepath.Join(bag.Path, bag.DirName, path)
+	if slices.ContainsFunc(info.Files, func(f v1.File) bool {
+		return !f.IsFolder && strings.HasSuffix(path, f.Name)
+	}) {
+		if s.isSingleFile(info.Files, path) {
+			info.SingleFilePath = filepath.Join(bag.Path, bag.DirName, path)
+		}
+	} else if len(info.Files) == 0 {
+		log.Warn("path not found in local", slog.String("path", path))
+		return info, models.NewAppError(models.NotFoundErrorCode, "path not found")
 	}
 
 	return info, nil
@@ -165,7 +180,7 @@ func ls(files []tonstorageClient.File, path string) []v1.File {
 	for _, file := range files {
 		fileName := strings.Trim(file.Name, string(filepath.Separator))
 
-		if normalizedPath == "" {
+		if normalizedPath == "." {
 			parts := strings.Split(fileName, string(filepath.Separator))
 			dirName := parts[0]
 

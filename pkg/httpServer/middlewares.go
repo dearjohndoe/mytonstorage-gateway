@@ -60,9 +60,8 @@ func (h *handler) requireMetrics() fiber.Handler {
 
 func (h *handler) loggerMiddleware(c *fiber.Ctx) error {
 	headers := c.GetReqHeaders()
-	if _, ok := headers["Authorization"]; ok {
-		headers["Authorization"] = []string{"REDACTED"}
-	}
+	delete(headers, "Authorization")
+	delete(headers, "Cookie")
 
 	res := c.Next()
 

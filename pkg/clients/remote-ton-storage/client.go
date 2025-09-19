@@ -70,14 +70,12 @@ func (c *client) StreamFile(ctx context.Context, bagID, path string) (FileStream
 			}, ErrTimeout
 		}
 
-		return FileStream{}, ErrNotFound
+		return FileStream{}, err
 	}
 
 	fileInfo, err := torrent.GetFileOffsets(path)
 	if err != nil {
-		return FileStream{
-			PeersCount: 0, // file not found in torrent, peers count is meaningless
-		}, ErrNotFound
+		return FileStream{}, err
 	}
 
 	pieces := make([]uint32, 0, (fileInfo.ToPiece-fileInfo.FromPiece)+1)
