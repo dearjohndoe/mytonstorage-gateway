@@ -36,10 +36,10 @@ type RemoteTONStorageCache struct {
 }
 
 type Metrics struct {
-	Namespace        string `env:"NAMESPACE" default:"ton-storage"`
-	ServerSubsystem  string `env:"SERVER_SUBSYSTEM" default:"mtpo-server"`
-	WorkersSubsystem string `env:"WORKERS_SUBSYSTEM" default:"mtpo-workers"`
-	DbSubsystem      string `env:"DB_SUBSYSTEM" default:"mtpo-db"`
+	Namespace        string `env:"NAMESPACE" envDefault:"ton-storage"`
+	ServerSubsystem  string `env:"SERVER_SUBSYSTEM" envDefault:"mtpo-server"`
+	WorkersSubsystem string `env:"WORKERS_SUBSYSTEM" envDefault:"mtpo-workers"`
+	DbSubsystem      string `env:"DB_SUBSYSTEM" envDefault:"mtpo-db"`
 }
 
 type Postgress struct {
