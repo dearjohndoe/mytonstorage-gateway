@@ -36,8 +36,11 @@ type Files interface {
 }
 
 func (s *service) GetPathInfo(ctx context.Context, bagID, path string) (private.FolderInfo, error) {
-	path = filepath.Clean(path)
-	path = strings.ReplaceAll(path, "../", "")
+	var err error
+	path, err = sanitizePath(path)
+	if err != nil {
+		return private.FolderInfo{}, err
+	}
 
 	log := s.logger.With(
 		slog.String("method", "GetPathInfo"),
@@ -242,6 +245,42 @@ func ls(files []tonstorageClient.File, path string) []v1.File {
 	})
 
 	return result
+}
+
+// sanitizePath применяет строгую валидацию пользовательского пути:
+// - нормализует через filepath.Clean
+// - запрещает абсолютные пути
+// - запрещает любые сегменты ".."
+// - корневой путь приводится к "."
+// Возвращает AppError с кодом 400 при нарушениях.
+func sanitizePath(p string) (string, error) {
+	p = strings.TrimSpace(p)
+	if p == "" || p == "." || p == "/" {
+		return ".", nil
+	}
+
+	cleaned := filepath.Clean(p)
+
+	if cleaned == "." {
+		return ".", nil
+	}
+
+	if strings.HasPrefix(cleaned, string(filepath.Separator)) {
+		return "", models.NewAppError(models.BadRequestErrorCode, "invalid path")
+	}
+
+	segments := strings.Split(cleaned, string(filepath.Separator))
+	for _, seg := range segments {
+		if seg == ".." || seg == "" {
+			return "", models.NewAppError(models.BadRequestErrorCode, "invalid path")
+		}
+	}
+
+	if strings.ContainsRune(cleaned, '\x00') {
+		return "", models.NewAppError(models.BadRequestErrorCode, "invalid path")
+	}
+
+	return cleaned, nil
 }
 
 func NewService(
