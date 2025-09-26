@@ -256,7 +256,7 @@ func (h *handler) getBagInfoResponse(c *fiber.Ctx, bagid, path string, log *slog
 			}
 
 			if pc > 0 {
-				err = fiber.NewError(fiber.StatusNotFound,
+				err = fiber.NewError(fiber.StatusRequestTimeout,
 					fmt.Sprintf("found %d peers, but request timed out", int(pc)))
 			}
 		} else {

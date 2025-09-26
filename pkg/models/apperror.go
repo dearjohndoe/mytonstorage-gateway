@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	TimeoutCode             = http.StatusRequestTimeout
 	NotFoundErrorCode       = http.StatusNotFound
 	InternalServerErrorCode = http.StatusInternalServerError
 	BadRequestErrorCode     = http.StatusBadRequest
@@ -16,6 +17,7 @@ var defaultMessages = map[int]string{
 	InternalServerErrorCode: "internal server error",
 	BadRequestErrorCode:     "bad request",
 	NotFoundErrorCode:       "not found",
+	TimeoutCode:             "request timeout",
 }
 
 // AppError — custom error type to handle service layer errors

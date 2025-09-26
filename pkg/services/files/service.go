@@ -109,7 +109,7 @@ func (s *service) getFromRemoteStorage(ctx context.Context, bagID, path string, 
 			return private.FolderInfo{
 				BagID:      bagID,
 				PeersCount: files.PeersCount,
-			}, models.NewAppError(models.NotFoundErrorCode, "bag not found")
+			}, models.NewAppError(models.TimeoutCode, "")
 		}
 
 		log.Error("remote-ton-storage ListFiles failed", slog.String("error", err.Error()))
@@ -157,7 +157,7 @@ func (s *service) streamRemoteFile(ctx context.Context, bagID, path string, log 
 		if errors.Is(err, remotes.ErrTimeout) {
 			return &private.StreamFile{
 				PeersCount: fs.PeersCount,
-			}, models.NewAppError(models.NotFoundErrorCode, "bag not found")
+			}, models.NewAppError(models.TimeoutCode, "")
 		}
 
 		log.Error("failed to stream file from remote", slog.String("error", err.Error()))
