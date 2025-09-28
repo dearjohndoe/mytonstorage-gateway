@@ -11,6 +11,7 @@ import (
 
 	remotes "mytonstorage-gateway/pkg/clients/remote-ton-storage"
 	tonstorageClient "mytonstorage-gateway/pkg/clients/ton-storage"
+	"mytonstorage-gateway/pkg/constants"
 	"mytonstorage-gateway/pkg/models"
 	v1 "mytonstorage-gateway/pkg/models/api/v1"
 	"mytonstorage-gateway/pkg/models/private"
@@ -36,12 +37,6 @@ type Files interface {
 }
 
 func (s *service) GetPathInfo(ctx context.Context, bagID, path string) (private.FolderInfo, error) {
-	var err error
-	path, err = sanitizePath(path)
-	if err != nil {
-		return private.FolderInfo{}, err
-	}
-
 	log := s.logger.With(
 		slog.String("method", "GetPathInfo"),
 		slog.String("bagID", bagID),
@@ -86,7 +81,8 @@ func (s *service) getFromLocalStorage(ctx context.Context, bagID, path string, l
 	}
 
 	if slices.ContainsFunc(info.Files, func(f v1.File) bool {
-		return !f.IsFolder && strings.HasSuffix(path, f.Name)
+		_, fileName := filepath.Split(path)
+		return !f.IsFolder && f.Name == fileName
 	}) {
 		if s.isSingleFile(info.Files, path) {
 			info.SingleFilePath = filepath.Join(bag.Path, bag.DirName, path)
@@ -136,6 +132,11 @@ func (s *service) getFromRemoteStorage(ctx context.Context, bagID, path string, 
 		return !f.IsFolder && strings.HasSuffix(path, f.Name)
 	}) {
 		if s.isSingleFile(info.Files, path) {
+			if info.Files[0].Size > constants.MaxFileServeSize {
+				log.Warn("file too large to serve", "path", path, slog.Uint64("size", info.Files[0].Size))
+				return private.FolderInfo{}, models.NewAppError(models.TooLargeCode, "file too large, use https://github.com/xssnick/TON-Torrent")
+			}
+
 			info.StreamFile, err = s.streamRemoteFile(ctx, bagID, path, log)
 			if err != nil {
 				log.Error("failed to stream file from remote", slog.String("error", err.Error()))
@@ -183,7 +184,7 @@ func ls(files []tonstorageClient.File, path string) []v1.File {
 	for _, file := range files {
 		fileName := strings.Trim(file.Name, string(filepath.Separator))
 
-		if normalizedPath == "." {
+		if normalizedPath == "." || normalizedPath == "" {
 			parts := strings.Split(fileName, string(filepath.Separator))
 			dirName := parts[0]
 
@@ -245,42 +246,6 @@ func ls(files []tonstorageClient.File, path string) []v1.File {
 	})
 
 	return result
-}
-
-// sanitizePath применяет строгую валидацию пользовательского пути:
-// - нормализует через filepath.Clean
-// - запрещает абсолютные пути
-// - запрещает любые сегменты ".."
-// - корневой путь приводится к "."
-// Возвращает AppError с кодом 400 при нарушениях.
-func sanitizePath(p string) (string, error) {
-	p = strings.TrimSpace(p)
-	if p == "" || p == "." || p == "/" {
-		return ".", nil
-	}
-
-	cleaned := filepath.Clean(p)
-
-	if cleaned == "." {
-		return ".", nil
-	}
-
-	if strings.HasPrefix(cleaned, string(filepath.Separator)) {
-		return "", models.NewAppError(models.BadRequestErrorCode, "invalid path")
-	}
-
-	segments := strings.Split(cleaned, string(filepath.Separator))
-	for _, seg := range segments {
-		if seg == ".." || seg == "" {
-			return "", models.NewAppError(models.BadRequestErrorCode, "invalid path")
-		}
-	}
-
-	if strings.ContainsRune(cleaned, '\x00') {
-		return "", models.NewAppError(models.BadRequestErrorCode, "invalid path")
-	}
-
-	return cleaned, nil
 }
 
 func NewService(

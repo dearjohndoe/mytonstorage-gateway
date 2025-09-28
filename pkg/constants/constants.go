@@ -1,5 +1,11 @@
 package constants
 
+const (
+	MaxPathLength    = 4096
+	MaxFileServeSize = 50 << 20 // 50 MiB
+	MaxHTMLFileSize  = 5 << 20  // 5 MiB
+)
+
 // Sorting constants
 const (
 	PubKeyColumn      = "p.public_key"

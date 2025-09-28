@@ -49,7 +49,7 @@ func (s *service) GetReports(ctx context.Context, limit int, offset int) (report
 		}
 
 		reports = append(reports, v1.Report{
-			BagID:     strings.ToUpper(r.BagID),
+			BagID:     r.BagID,
 			Reason:    r.Reason,
 			Sender:    r.Sender,
 			Comment:   r.Comment,
@@ -84,7 +84,7 @@ func (s *service) GetReportsByBagID(ctx context.Context, bagID string) ([]v1.Rep
 		}
 
 		resp = append(resp, v1.Report{
-			BagID:     strings.ToUpper(dbReport.BagID),
+			BagID:     dbReport.BagID,
 			Reason:    dbReport.Reason,
 			Sender:    dbReport.Sender,
 			Comment:   dbReport.Comment,
@@ -112,7 +112,7 @@ func (s *service) GetBan(ctx context.Context, bagID string) (*v1.BanInfo, error)
 	}
 
 	return &v1.BanInfo{
-		BagID:   strings.ToUpper(status.BagID),
+		BagID:   status.BagID,
 		Admin:   status.Admin,
 		Reason:  status.Reason,
 		Comment: status.Comment,
@@ -130,7 +130,7 @@ func (s *service) GetAllBans(ctx context.Context, limit int, offset int) (bans [
 
 	for _, b := range dbBans {
 		bans = append(bans, v1.BanInfo{
-			BagID:   strings.ToUpper(b.BagID),
+			BagID:   b.BagID,
 			Admin:   b.Admin,
 			Reason:  b.Reason,
 			Comment: b.Comment,

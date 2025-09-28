@@ -8,6 +8,7 @@ import (
 const (
 	TimeoutCode             = http.StatusRequestTimeout
 	NotFoundErrorCode       = http.StatusNotFound
+	TooLargeCode            = http.StatusRequestEntityTooLarge
 	InternalServerErrorCode = http.StatusInternalServerError
 	BadRequestErrorCode     = http.StatusBadRequest
 	NotAcceptableErrorCode  = http.StatusNotAcceptable
