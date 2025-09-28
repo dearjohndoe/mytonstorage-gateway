@@ -1,13 +1,16 @@
 package httpServer
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
@@ -120,6 +123,7 @@ func serveHTMLFile(c *fiber.Ctx, bagInfo private.FolderInfo) error {
 	if bagInfo.StreamFile != nil {
 		buf := make([]byte, bagInfo.StreamFile.Size)
 		_, err := bagInfo.StreamFile.FileStream.Read(buf)
+		bagInfo.StreamFile.FileStream.Close()
 		if err != nil {
 			return errorHandler(c, err)
 		}
@@ -147,4 +151,39 @@ func serveHTMLFile(c *fiber.Ctx, bagInfo private.FolderInfo) error {
 	}
 
 	return c.SendString(iframeHTML)
+}
+
+func streamWithDeadline(c *fiber.Ctx, r io.Reader, size int) error {
+	deadline := time.Now().Add(time.Second * constants.FileDownloadTimeoutSeconds)
+
+	if size >= 0 {
+		c.Response().Header.Set("Content-Length", fmt.Sprintf("%d", size))
+	}
+
+	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+		defer func() {
+			_ = w.Flush()
+
+			if rc, ok := r.(io.ReadCloser); ok {
+				_ = rc.Close()
+			}
+		}()
+
+		buf := make([]byte, 64*1024)
+		for {
+			if time.Now().After(deadline) {
+				return
+			}
+			n, err := r.Read(buf)
+			if n > 0 {
+				if _, werr := w.Write(buf[:n]); werr != nil {
+					return
+				}
+			}
+			if err != nil {
+				return
+			}
+		}
+	})
+	return nil
 }

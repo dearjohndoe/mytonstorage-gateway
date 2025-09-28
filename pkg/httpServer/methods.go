@@ -307,7 +307,7 @@ func (h *handler) serveFile(c *fiber.Ctx, bagInfo private.FolderInfo, ct htmlTem
 
 	if bagInfo.StreamFile != nil {
 		// Size check is done before on service layer
-		return c.SendStream(bagInfo.StreamFile.FileStream, int(bagInfo.StreamFile.Size))
+		return streamWithDeadline(c, bagInfo.StreamFile.FileStream, int(bagInfo.StreamFile.Size))
 	} else if bagInfo.SingleFilePath != "" {
 		f, err := os.Stat(bagInfo.SingleFilePath)
 		if errors.Is(err, os.ErrNotExist) {
@@ -317,8 +317,11 @@ func (h *handler) serveFile(c *fiber.Ctx, bagInfo private.FolderInfo, ct htmlTem
 		if int(f.Size()) > constants.MaxFileServeSize {
 			return errorHandler(c, fiber.NewError(fiber.StatusRequestEntityTooLarge, "file too large, use https://github.com/xssnick/TON-Torrent"))
 		}
-
-		return c.SendFile(bagInfo.SingleFilePath)
+		file, err := os.Open(bagInfo.SingleFilePath)
+		if err != nil {
+			return errorHandler(c, fiber.NewError(fiber.StatusInternalServerError, ""))
+		}
+		return streamWithDeadline(c, file, int(f.Size()))
 	}
 
 	return errorHandler(c, fiber.NewError(fiber.StatusNotFound, "file not found"))

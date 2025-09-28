@@ -1,9 +1,10 @@
 package constants
 
 const (
-	MaxPathLength    = 4096
-	MaxFileServeSize = 50 << 20 // 50 MiB
-	MaxHTMLFileSize  = 5 << 20  // 5 MiB
+	MaxPathLength              = 4096
+	MaxFileServeSize           = 50 << 20 // 50 MiB
+	MaxHTMLFileSize            = 5 << 20  // 5 MiB
+	FileDownloadTimeoutSeconds = 60 * 3   // 3 minutes
 )
 
 // Sorting constants
