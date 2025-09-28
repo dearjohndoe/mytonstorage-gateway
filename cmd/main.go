@@ -66,9 +66,17 @@ func run() (err error) {
 		[]string{"method", "error"},
 	)
 
+	dbRequestsInFlight := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: config.Metrics.Namespace,
+		Subsystem: config.Metrics.DbSubsystem,
+		Name:      "db_requests_in_flight",
+		Help:      "Current number of in-flight DB requests",
+	})
+
 	prometheus.MustRegister(
 		dbRequestsCount,
 		dbRequestsDuration,
+		dbRequestsInFlight,
 	)
 
 	// Postgres
@@ -81,7 +89,7 @@ func run() (err error) {
 	// Database
 	filesRepo := filesRepository.NewRepository(connPool)
 	filesRepo = filesRepository.NewCache(filesRepo)
-	filesRepo = filesRepository.NewMetrics(dbRequestsCount, dbRequestsDuration, filesRepo)
+	filesRepo = filesRepository.NewMetrics(dbRequestsCount, dbRequestsDuration, dbRequestsInFlight, filesRepo)
 
 	// Clients
 	creds := tonstorage.Credentials{
