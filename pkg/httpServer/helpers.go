@@ -78,14 +78,10 @@ func sanitizePath(p string) (string, error) {
 		return "", models.NewAppError(models.BadRequestErrorCode, "path too long")
 	}
 
-	if strings.HasPrefix(cleaned, string(filepath.Separator)) {
-		return "", models.NewAppError(models.BadRequestErrorCode, "invalid path")
-	}
-
 	segments := strings.Split(cleaned, string(filepath.Separator))
 	for _, seg := range segments {
-		if seg == ".." || seg == "" {
-			return "", models.NewAppError(models.BadRequestErrorCode, "invalid path")
+		if seg == ".." {
+			return "", models.NewAppError(models.BadRequestErrorCode, "invalid segment in path")
 		}
 	}
 
