@@ -53,6 +53,9 @@ type client struct {
 
 	bagsCache *BagsCache
 
+	downloadingBagLocks   map[string]*sync.Mutex
+	downloadingBagLocksMu sync.Mutex
+
 	metrics *RemoteTONStorageMetrics
 
 	storageKey  ed25519.PrivateKey
@@ -229,6 +232,18 @@ func (c *client) Close() {
 }
 
 func (c *client) getTorrent(ctx context.Context, bagID string) (torrent *tonstorage.Torrent, downloader tonstorage.TorrentDownloader, err error) {
+	// First cache check
+	if t, d, ok := c.bagsCache.Get(bagID); ok {
+		torrent = t
+		downloader = d
+		return
+	}
+
+	lock := c.getBagLock(bagID)
+	lock.Lock()
+	defer lock.Unlock()
+
+	// Second cache check under the lock
 	if t, d, ok := c.bagsCache.Get(bagID); ok {
 		torrent = t
 		downloader = d
@@ -246,6 +261,7 @@ func (c *client) getTorrent(ctx context.Context, bagID string) (torrent *tonstor
 	_ = c.store.SetTorrent(torrent)
 
 	if err = torrent.Start(true, false, false); err != nil {
+		torrent.Stop()
 		err = fmt.Errorf("failed to start torrent: %w", err)
 		return
 	}
@@ -256,6 +272,7 @@ func (c *client) getTorrent(ctx context.Context, bagID string) (torrent *tonstor
 	dStart := time.Now()
 	downloader, err = c.conn.CreateDownloader(timeoutCtx, torrent)
 	if err != nil {
+		torrent.Stop()
 		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "timeout") {
 			err = ErrTimeout
 			if c.metrics != nil {
@@ -277,6 +294,7 @@ func (c *client) getTorrent(ctx context.Context, bagID string) (torrent *tonstor
 	}
 
 	if torrent.Header == nil || torrent.Info == nil {
+		torrent.Stop()
 		err = fmt.Errorf("torrent header or info not loaded")
 		return
 	}
@@ -284,6 +302,17 @@ func (c *client) getTorrent(ctx context.Context, bagID string) (torrent *tonstor
 	c.bagsCache.Set(bagID, torrent, downloader)
 
 	return
+}
+
+func (c *client) getBagLock(bagID string) *sync.Mutex {
+	c.downloadingBagLocksMu.Lock()
+	defer c.downloadingBagLocksMu.Unlock()
+	if m, ok := c.downloadingBagLocks[bagID]; ok {
+		return m
+	}
+	m := &sync.Mutex{}
+	c.downloadingBagLocks[bagID] = m
+	return m
 }
 
 func NewClient(ctx context.Context, configURL string, cache *BagsCache, metrics *RemoteTONStorageMetrics) (Client, error) {
@@ -346,15 +375,16 @@ func NewClient(ctx context.Context, configURL string, cache *BagsCache, metrics 
 	}
 
 	return &client{
-		bagsCache:   cache,
-		netMgr:      netMgr,
-		dhtGateway:  dhtGateway,
-		dhtClient:   dhtClient,
-		storageKey:  storageKey,
-		storageGate: storageGate,
-		srv:         srv,
-		conn:        conn,
-		store:       store,
-		metrics:     metrics,
+		bagsCache:           cache,
+		netMgr:              netMgr,
+		dhtGateway:          dhtGateway,
+		dhtClient:           dhtClient,
+		storageKey:          storageKey,
+		storageGate:         storageGate,
+		srv:                 srv,
+		conn:                conn,
+		store:               store,
+		metrics:             metrics,
+		downloadingBagLocks: make(map[string]*sync.Mutex),
 	}, nil
 }

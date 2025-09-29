@@ -108,6 +108,7 @@ func (bc *BagsCache) freeUnsafe() (updated bool) {
 
 		if oldestBagID != "" {
 			if entry := bc.cache[oldestBagID]; entry != nil && entry.downloader != nil {
+				entry.torrent.Stop()
 				entry.downloader.Close()
 			}
 			delete(bc.cache, oldestBagID)
@@ -122,6 +123,10 @@ func (bc *BagsCache) freeUnsafe() (updated bool) {
 }
 
 func NewBagsCache(maxCacheEntries int) *BagsCache {
+	if maxCacheEntries <= 0 {
+		maxCacheEntries = 100
+	}
+
 	return &BagsCache{
 		cache: make(map[string]*torrentCacheEntry, maxCacheEntries),
 		config: BagsCacheConfig{
