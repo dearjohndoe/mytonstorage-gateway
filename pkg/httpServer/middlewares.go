@@ -63,6 +63,10 @@ func (h *handler) loggerMiddleware(c *fiber.Ctx) error {
 	delete(headers, "Authorization")
 	delete(headers, "Cookie")
 
+	if _, ok := headers["Cookie"]; ok {
+		headers["Cookie"] = []string{"REDACTED"}
+	}
+
 	res := c.Next()
 
 	h.logger.Debug(

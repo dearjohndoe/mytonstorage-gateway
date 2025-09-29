@@ -14,7 +14,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"mytonstorage-gateway/pkg/constants"
-	"mytonstorage-gateway/pkg/models"
 	v1 "mytonstorage-gateway/pkg/models/api/v1"
 	"mytonstorage-gateway/pkg/models/private"
 	htmlTemplates "mytonstorage-gateway/pkg/templates"
@@ -259,7 +258,7 @@ func (h *handler) getBagInfoResponse(c *fiber.Ctx, bagid, path string, log *slog
 			sanitized, sErr := sanitizePath(bagInfo.SingleFilePath)
 			if sErr != nil {
 				log.Error("invalid single file path", slog.String("path", bagInfo.SingleFilePath))
-				return errorHandler(c, models.NewAppError(models.BadRequestErrorCode, "invalid file in bag path"))
+				return errorHandler(c, sErr)
 			}
 
 			bagInfo.SingleFilePath = sanitized
