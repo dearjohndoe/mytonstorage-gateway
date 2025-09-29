@@ -3,9 +3,7 @@ package httpServer
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
-	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -13,10 +11,9 @@ import (
 
 	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"mytonstorage-gateway/pkg/iframewrap"
+	"mytonstorage-gateway/pkg/constants"
 	"mytonstorage-gateway/pkg/models"
 	v1 "mytonstorage-gateway/pkg/models/api/v1"
 	"mytonstorage-gateway/pkg/models/private"
@@ -124,7 +121,6 @@ func (h *handler) updateBanStatus(c *fiber.Ctx) (err error) {
 		slog.String("url", c.OriginalURL()),
 		slog.Any("headers", c.GetReqHeaders()),
 		slog.Int("body_length", len(body)),
-		slog.String("body", string(body)),
 	)
 
 	if len(body) == 0 || body[0] != '[' {
@@ -242,39 +238,41 @@ func (h *handler) addReport(c *fiber.Ctx) (err error) {
 func (h *handler) getBagInfoResponse(c *fiber.Ctx, bagid, path string, log *slog.Logger) (err error) {
 	if !validateBagID(bagid) {
 		log.Error("invalid bagid format")
-		err = fiber.NewError(fiber.StatusBadRequest, "invalid bagid")
+		return errorHandler(c, fiber.NewError(fiber.StatusBadRequest, "invalid bagid"))
+	}
+
+	path, err = sanitizePath(path)
+	if err != nil {
+		log.Error("invalid path", "path", path)
 		return errorHandler(c, err)
 	}
 
 	bagInfo, err := h.files.GetPathInfo(c.Context(), bagid, path)
 	if err != nil {
-		var appErr *models.AppError
-		if errors.As(err, &appErr) {
-			pc := float64(bagInfo.PeersCount)
-			if bagInfo.StreamFile != nil {
-				pc = math.Max(float64(bagInfo.StreamFile.PeersCount), pc)
-			}
-
-			if pc > 0 {
-				err = fiber.NewError(fiber.StatusNotFound,
-					fmt.Sprintf("found %d peers, but request timed out", int(pc)))
-			}
-		} else {
-			log.Error("failed to get bag path", slog.String("error", err.Error()))
-			err = fiber.NewError(fiber.StatusInternalServerError, "")
-		}
-
-		return errorHandler(c, err)
+		mapped := mapPathInfoError(err, bagInfo, log)
+		return errorHandler(c, mapped)
 	}
 
+	// File response branch
 	if bagInfo.StreamFile != nil || bagInfo.SingleFilePath != "" {
+		if bagInfo.SingleFilePath != "" {
+			sanitized, sErr := sanitizePath(bagInfo.SingleFilePath)
+			if sErr != nil {
+				log.Error("invalid single file path", slog.String("path", bagInfo.SingleFilePath))
+				return errorHandler(c, models.NewAppError(models.BadRequestErrorCode, "invalid file in bag path"))
+			}
+
+			bagInfo.SingleFilePath = sanitized
+			return h.serveFile(c, bagInfo, h.templates.ContentType(filepath.Ext(bagInfo.SingleFilePath)))
+		}
+
 		return h.serveFile(c, bagInfo, h.templates.ContentType(filepath.Ext(path)))
 	}
 
-	// serve directory
-	html, err := h.templates.HtmlFilesListWithTemplate(bagInfo, path)
-	if err != nil {
-		log.Error("failed to render directory template", slog.String("error", err.Error()))
+	// Directory listing
+	html, rerr := h.templates.HtmlFilesListWithTemplate(bagInfo, path)
+	if rerr != nil {
+		log.Error("failed to render directory template", slog.String("error", rerr.Error()))
 		return errorHandler(c, fiber.NewError(fiber.StatusInternalServerError, ""))
 	}
 
@@ -282,6 +280,21 @@ func (h *handler) getBagInfoResponse(c *fiber.Ctx, bagid, path string, log *slog
 }
 
 func (h *handler) serveFile(c *fiber.Ctx, bagInfo private.FolderInfo, ct htmlTemplates.ContentType) error {
+	// Force download for large HTML files
+	if ct.IsHtml && bagInfo.SingleFilePath != "" {
+		f, sErr := os.Lstat(bagInfo.SingleFilePath)
+		if sErr != nil {
+			return errorHandler(c, fiber.NewError(fiber.StatusNotFound, "file not found"))
+		}
+
+		if f.Size() >= constants.MaxHTMLFileSize {
+			ct.Header = "Content-Disposition"
+			ct.Value = `attachment; filename="` + bagInfo.SingleFilePath + `"`
+			ct.IsDownload = true
+			ct.IsHtml = false
+		}
+	}
+
 	if ct.IsDownload {
 		c.Response().Header.Set(ct.Header, ct.Value)
 	} else {
@@ -289,48 +302,26 @@ func (h *handler) serveFile(c *fiber.Ctx, bagInfo private.FolderInfo, ct htmlTem
 	}
 
 	if ct.IsHtml {
-		var htmlContent string
-
-		if bagInfo.StreamFile != nil {
-			buf := make([]byte, bagInfo.StreamFile.Size)
-			_, err := bagInfo.StreamFile.FileStream.Read(buf)
-			if err != nil {
-				return errorHandler(c, err)
-			}
-
-			htmlContent = string(buf)
-		} else if bagInfo.SingleFilePath != "" {
-			content, err := os.ReadFile(bagInfo.SingleFilePath)
-			if err != nil {
-				return errorHandler(c, err)
-			}
-
-			htmlContent = string(content)
-		} else {
-			return errorHandler(c, fiber.NewError(fiber.StatusNotFound, "file not found"))
-		}
-
-		iframeHTML, err := iframewrap.WrapHTML(htmlContent, iframewrap.Options{
-			AllowScripts: true,
-			AllowForms:   true,
-		})
-		if err != nil {
-			log.Error("failed to create iframe wrapper", slog.String("error", err.Error()))
-			err = models.NewAppError(models.InternalServerErrorCode, "")
-			return errorHandler(c, err)
-		}
-
-		return c.SendString(iframeHTML)
+		return serveHTMLFile(c, bagInfo)
 	}
 
 	if bagInfo.StreamFile != nil {
-		return c.SendStream(bagInfo.StreamFile.FileStream, int(bagInfo.StreamFile.Size))
+		// Size check is done before on service layer
+		return streamWithDeadline(c, bagInfo.StreamFile.FileStream, int(bagInfo.StreamFile.Size))
 	} else if bagInfo.SingleFilePath != "" {
-		if _, err := os.Stat(bagInfo.SingleFilePath); errors.Is(err, os.ErrNotExist) {
+		f, err := os.Stat(bagInfo.SingleFilePath)
+		if errors.Is(err, os.ErrNotExist) {
 			return errorHandler(c, fiber.NewError(fiber.StatusNotFound, "file not found"))
 		}
 
-		return c.SendFile(bagInfo.SingleFilePath)
+		if int(f.Size()) > constants.MaxFileServeSize {
+			return errorHandler(c, fiber.NewError(fiber.StatusRequestEntityTooLarge, "file too large, use https://github.com/xssnick/TON-Torrent"))
+		}
+		file, err := os.Open(bagInfo.SingleFilePath)
+		if err != nil {
+			return errorHandler(c, fiber.NewError(fiber.StatusInternalServerError, ""))
+		}
+		return streamWithDeadline(c, file, int(f.Size()))
 	}
 
 	return errorHandler(c, fiber.NewError(fiber.StatusNotFound, "file not found"))
