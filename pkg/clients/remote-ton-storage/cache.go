@@ -20,9 +20,10 @@ type torrentCacheEntry struct {
 }
 
 type BagsCache struct {
-	cache  map[string]*torrentCacheEntry
-	mutex  sync.RWMutex
-	config BagsCacheConfig
+	cache   map[string]*torrentCacheEntry
+	mutex   sync.RWMutex
+	config  BagsCacheConfig
+	metrics *RemoteTONStorageMetrics
 }
 
 func (bc *BagsCache) Get(bagID string) (*tonstorage.Torrent, tonstorage.TorrentDownloader, bool) {
@@ -31,7 +32,14 @@ func (bc *BagsCache) Get(bagID string) (*tonstorage.Torrent, tonstorage.TorrentD
 
 	entry, exists := bc.cache[strings.ToLower(bagID)]
 	if !exists {
+		if bc.metrics != nil {
+			bc.metrics.cacheMisses.Inc()
+		}
 		return nil, nil, false
+	}
+
+	if bc.metrics != nil {
+		bc.metrics.cacheHits.Inc()
 	}
 
 	entry.lastUsed = time.Now()
@@ -53,10 +61,17 @@ func (bc *BagsCache) Set(bagID string, torrent *tonstorage.Torrent, downloader t
 		bagSize:    bagSize,
 		lastUsed:   time.Now(),
 	}
+	if bc.metrics != nil {
+		bc.metrics.cacheHits.Inc()
+	}
 
 	bc.cache[strings.ToLower(bagID)] = entry
 
 	for bc.freeUnsafe() {
+	}
+
+	if bc.metrics != nil {
+		bc.metrics.activeTorrents.Set(float64(len(bc.cache)))
 	}
 }
 
@@ -66,11 +81,17 @@ func (bc *BagsCache) Clear() {
 
 	for _, entry := range bc.cache {
 		if entry.downloader != nil {
+			if bc.metrics != nil {
+				bc.metrics.cacheHits.Inc()
+			}
 			entry.downloader.Close()
 		}
 	}
 
 	bc.cache = make(map[string]*torrentCacheEntry, bc.config.MaxCacheEntries)
+	if bc.metrics != nil {
+		bc.metrics.activeTorrents.Set(0)
+	}
 }
 
 func (bc *BagsCache) freeUnsafe() (updated bool) {
@@ -90,6 +111,9 @@ func (bc *BagsCache) freeUnsafe() (updated bool) {
 				entry.downloader.Close()
 			}
 			delete(bc.cache, oldestBagID)
+			if bc.metrics != nil {
+				bc.metrics.cacheEvicts.Inc()
+			}
 			updated = true
 		}
 	}
@@ -104,4 +128,9 @@ func NewBagsCache(maxCacheEntries int) *BagsCache {
 			MaxCacheEntries: maxCacheEntries,
 		},
 	}
+}
+
+func (bc *BagsCache) WithMetrics(m *RemoteTONStorageMetrics) *BagsCache {
+	bc.metrics = m
+	return bc
 }

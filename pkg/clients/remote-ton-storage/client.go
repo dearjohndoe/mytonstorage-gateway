@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/xssnick/tonutils-go/adnl"
@@ -52,6 +53,8 @@ type client struct {
 
 	bagsCache *BagsCache
 
+	metrics *RemoteTONStorageMetrics
+
 	storageKey  ed25519.PrivateKey
 	storageGate *adnl.Gateway
 	srv         *tonstorage.Server
@@ -61,20 +64,27 @@ type client struct {
 }
 
 func (c *client) StreamFile(ctx context.Context, bagID, path string) (FileStream, error) {
+	start := time.Now()
 	torrent, downloader, err := c.getTorrent(ctx, bagID)
 	if err != nil {
 		if errors.Is(err, ErrTimeout) && torrent != nil {
 			peers := torrent.GetPeers()
-			return FileStream{
-				PeersCount: len(peers),
-			}, ErrTimeout
+			if c.metrics != nil {
+				c.metrics.streamFileReqs.WithLabelValues("timeout").Inc()
+			}
+			return FileStream{PeersCount: len(peers)}, ErrTimeout
 		}
-
+		if c.metrics != nil {
+			c.metrics.streamFileReqs.WithLabelValues("error").Inc()
+		}
 		return FileStream{}, err
 	}
 
 	fileInfo, err := torrent.GetFileOffsets(path)
 	if err != nil {
+		if c.metrics != nil {
+			c.metrics.streamFileReqs.WithLabelValues("not_found").Inc()
+		}
 		return FileStream{}, err
 	}
 
@@ -85,6 +95,20 @@ func (c *client) StreamFile(ctx context.Context, bagID, path string) (FileStream
 
 	fetch := tonstorage.NewPreFetcher(ctx, torrent, downloader, func(event tonstorage.Event) {}, 64, pieces)
 	pr, pw := io.Pipe()
+
+	// metrics wrapping reader
+	var firstByteOnce sync.Once
+	if c.metrics != nil {
+		c.metrics.activeStreams.Inc()
+	}
+
+	wrapped := &meteredStream{
+		ReadCloser:    pr,
+		start:         start,
+		metrics:       c.metrics,
+		firstByteOnce: &firstByteOnce,
+		ttfbObserved:  false,
+	}
 
 	go func(ctx context.Context) {
 		defer fetch.Stop()
@@ -120,17 +144,36 @@ func (c *client) StreamFile(ctx context.Context, bagID, path string) (FileStream
 		}
 	}(ctx)
 
-	peers := torrent.GetPeers()
+	if c.metrics != nil {
+		c.metrics.streamFileReqs.WithLabelValues("success").Inc()
+	}
 
+	peers := torrent.GetPeers()
 	return FileStream{
-		FileStream: pr,
+		FileStream: wrapped,
 		Size:       fileInfo.Size,
 		PeersCount: len(peers),
 	}, nil
 }
 
 // ListFiles returns all files in the bag with sizes by loading the torrent header via ADNL.
-func (c *client) ListFiles(ctx context.Context, bagID string) (BagInfo, error) {
+func (c *client) ListFiles(ctx context.Context, bagID string) (info BagInfo, err error) {
+	start := time.Now()
+	defer func() {
+		result := "success"
+		if err != nil {
+			result = "error"
+			if errors.Is(err, ErrTimeout) {
+				result = "timeout"
+			}
+		}
+
+		if c.metrics != nil {
+			c.metrics.listFilesReqs.WithLabelValues(result).Inc()
+			c.metrics.listFilesDuration.WithLabelValues(result).Observe(time.Since(start).Seconds())
+		}
+	}()
+
 	torrent, _, err := c.getTorrent(ctx, bagID)
 	if err != nil {
 		if errors.Is(err, ErrTimeout) && torrent != nil {
@@ -210,15 +253,27 @@ func (c *client) getTorrent(ctx context.Context, bagID string) (torrent *tonstor
 	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
+	dStart := time.Now()
 	downloader, err = c.conn.CreateDownloader(timeoutCtx, torrent)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "timeout") {
 			err = ErrTimeout
+			if c.metrics != nil {
+				c.metrics.downloaderCreations.WithLabelValues("timeout").Inc()
+				c.metrics.downloaderCreationDuration.WithLabelValues("timeout").Observe(time.Since(dStart).Seconds())
+			}
 			return
 		}
-
+		if c.metrics != nil {
+			c.metrics.downloaderCreations.WithLabelValues("error").Inc()
+			c.metrics.downloaderCreationDuration.WithLabelValues("error").Observe(time.Since(dStart).Seconds())
+		}
 		err = fmt.Errorf("failed to create downloader: %w", err)
 		return
+	}
+	if c.metrics != nil {
+		c.metrics.downloaderCreations.WithLabelValues("success").Inc()
+		c.metrics.downloaderCreationDuration.WithLabelValues("success").Observe(time.Since(dStart).Seconds())
 	}
 
 	if torrent.Header == nil || torrent.Info == nil {
@@ -231,7 +286,7 @@ func (c *client) getTorrent(ctx context.Context, bagID string) (torrent *tonstor
 	return
 }
 
-func NewClient(ctx context.Context, configURL string, cache *BagsCache) (Client, error) {
+func NewClient(ctx context.Context, configURL string, cache *BagsCache, metrics *RemoteTONStorageMetrics) (Client, error) {
 	if configURL == "" {
 		configURL = "https://ton-blockchain.github.io/global.config.json"
 	}
@@ -286,6 +341,10 @@ func NewClient(ctx context.Context, configURL string, cache *BagsCache) (Client,
 	srv.SetStorage(store)
 	conn := tonstorage.NewConnector(srv)
 
+	if metrics != nil {
+		cache.WithMetrics(metrics)
+	}
+
 	return &client{
 		bagsCache:   cache,
 		netMgr:      netMgr,
@@ -296,5 +355,6 @@ func NewClient(ctx context.Context, configURL string, cache *BagsCache) (Client,
 		srv:         srv,
 		conn:        conn,
 		store:       store,
+		metrics:     metrics,
 	}, nil
 }
