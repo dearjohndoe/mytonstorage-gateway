@@ -10,6 +10,7 @@ type FolderInfo struct {
 	StreamFile     *StreamFile
 	Files          []v1.File
 	TotalSize      uint64
+	FilesCount     int
 	PeersCount     int
 	Description    string
 	BagID          string

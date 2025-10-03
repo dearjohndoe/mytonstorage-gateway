@@ -102,7 +102,7 @@ func (t *htmlTemplates) HtmlFilesListWithTemplate(f private.FolderInfo, path str
 		TotalSize:   utils.FormatSize(f.TotalSize),
 		Description: f.Description,
 		PeersCount:  f.PeersCount,
-		FileCount:   len(f.Files),
+		FileCount:   f.FilesCount,
 		Files:       make([]FileData, 0, len(f.Files)),
 	}
 

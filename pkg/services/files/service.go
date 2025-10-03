@@ -78,6 +78,7 @@ func (s *service) getFromLocalStorage(ctx context.Context, bagID, path string, l
 		TotalSize:   bag.Size,
 		Description: bag.Description,
 		Files:       ls(bag.Files, path),
+		FilesCount:  len(bag.Files),
 	}
 
 	if slices.ContainsFunc(info.Files, func(f v1.File) bool {
@@ -126,6 +127,7 @@ func (s *service) getFromRemoteStorage(ctx context.Context, bagID, path string, 
 		TotalSize:   files.TotalSize,
 		PeersCount:  files.PeersCount,
 		Files:       ls(files.Files, path),
+		FilesCount:  len(files.Files),
 	}
 
 	if slices.ContainsFunc(info.Files, func(f v1.File) bool {
