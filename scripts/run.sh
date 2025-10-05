@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /opt/storage
+cd /opt/storage/gateway
 
 env $(cat config.env | xargs) ./mtpo-gateway >> /var/log/mytonstorage_gateway.app/mytonstorage_gateway.app.log 2>&1 &
 
