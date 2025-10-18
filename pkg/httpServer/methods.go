@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/gofiber/adaptor/v2"
@@ -262,10 +261,10 @@ func (h *handler) getBagInfoResponse(c *fiber.Ctx, bagid, path string, log *slog
 			}
 
 			bagInfo.SingleFilePath = sanitized
-			return h.serveFile(c, bagInfo, h.templates.ContentType(filepath.Ext(bagInfo.SingleFilePath)))
+			return h.serveFile(c, bagInfo, h.templates.ContentType(bagInfo.SingleFilePath))
 		}
 
-		return h.serveFile(c, bagInfo, h.templates.ContentType(filepath.Ext(path)))
+		return h.serveFile(c, bagInfo, h.templates.ContentType(path))
 	}
 
 	// Directory listing
